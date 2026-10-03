@@ -1,0 +1,31 @@
+---
+import type { Post } from '../lib/utils';
+import { formatDate, postPath, withBase, readingTime } from '../lib/utils';
+import TagList from './TagList.astro';
+
+interface Props {
+  posts: Post[];
+  headingLevel?: 'h2' | 'h3';
+}
+const { posts, headingLevel = 'h2' } = Astro.props;
+const Heading = headingLevel;
+---
+
+<ul class="post-list">
+  {
+    posts.map((post) => (
+      <li>
+        <Heading>
+          <a href={withBase(postPath(post))}>{post.data.title}</a>
+        </Heading>
+        <div class="meta">
+          <time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
+          <span>{readingTime(post.body)} min read</span>
+          {post.data.draft && <strong>Draft</strong>}
+        </div>
+        <p>{post.data.description}</p>
+        <TagList tags={post.data.tags} />
+      </li>
+    ))
+  }
+</ul>

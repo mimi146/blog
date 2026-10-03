@@ -1,0 +1,120 @@
+---
+/**
+ * All <head> SEO: title, description, canonical, Open Graph, Twitter cards, JSON-LD,
+ * RSS/sitemap discovery, favicon, and the no-flash theme script.
+ */
+import { SITE } from '../consts';
+import { absoluteUrl, withBase } from '../lib/utils';
+
+export interface Props {
+  title?: string;
+  description?: string;
+  image?: string; // absolute URL or site-relative path (e.g. "/og-default.png")
+  imageAlt?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  type?: 'website' | 'article' | 'profile';
+  publishedTime?: Date;
+  modifiedTime?: Date;
+  tags?: string[];
+  noindex?: boolean;
+  jsonLd?: Record<string, unknown>[];
+}
+
+const {
+  title,
+  description = SITE.description,
+  image = SITE.ogImage,
+  imageAlt = SITE.ogImageAlt,
+  imageWidth = 1200,
+  imageHeight = 630,
+  type = 'website',
+  publishedTime,
+  modifiedTime,
+  tags = [],
+  noindex = false,
+  jsonLd = [],
+} = Astro.props;
+
+const fullTitle = title ? `${title} · ${SITE.title}` : `${SITE.title} — ${SITE.tagline}`;
+const canonical = absoluteUrl(Astro.url.pathname, Astro.site);
+const ogImage = absoluteUrl(image, Astro.site);
+const homeUrl = absoluteUrl('/', Astro.site);
+
+const person = {
+  '@type': 'Person',
+  '@id': `${homeUrl}#person`,
+  name: SITE.author,
+  url: absoluteUrl('/about/', Astro.site),
+  jobTitle: 'Software Engineer',
+  sameAs: Object.values(SITE.social),
+};
+const website = {
+  '@type': 'WebSite',
+  '@id': `${homeUrl}#website`,
+  url: homeUrl,
+  name: SITE.title,
+  description: SITE.description,
+  inLanguage: SITE.lang,
+  author: { '@id': `${homeUrl}#person` },
+  publisher: { '@id': `${homeUrl}#person` },
+};
+const graph = { '@context': 'https://schema.org', '@graph': [website, person, ...jsonLd] };
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{fullTitle}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+<meta name="author" content={SITE.author} />
+<meta name="generator" content={Astro.generator} />
+{noindex && <meta name="robots" content="noindex, follow" />}
+
+<!-- Theme: set before first paint to avoid a flash of the wrong theme. -->
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#fcfbf8" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)" />
+<script is:inline>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+
+<link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
+<link rel="icon" href={withBase('/favicon-32.png')} sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href={withBase('/apple-touch-icon.png')} />
+<link rel="alternate" type="application/rss+xml" title={`${SITE.title} — RSS`} href={absoluteUrl('/rss.xml', Astro.site)} />
+<link rel="sitemap" href={withBase('/sitemap-index.xml')} />
+
+<!-- Google Search Console verification: paste your tag here, e.g.
+<meta name="google-site-verification" content="YOUR_TOKEN" />
+-->
+
+<!-- Open Graph -->
+<meta property="og:type" content={type} />
+<meta property="og:site_name" content={SITE.title} />
+<meta property="og:locale" content={SITE.locale} />
+<meta property="og:title" content={title ?? SITE.title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonical} />
+<meta property="og:image" content={ogImage} />
+<meta property="og:image:width" content={String(imageWidth)} />
+<meta property="og:image:height" content={String(imageHeight)} />
+<meta property="og:image:alt" content={imageAlt} />
+{publishedTime && <meta property="article:published_time" content={publishedTime.toISOString()} />}
+{modifiedTime && <meta property="article:modified_time" content={modifiedTime.toISOString()} />}
+{type === 'article' && <meta property="article:author" content={absoluteUrl('/about/', Astro.site)} />}
+{tags.map((tag) => <meta property="article:tag" content={tag} />)}
+
+<!-- Twitter / X -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title ?? SITE.title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+<meta name="twitter:image:alt" content={imageAlt} />
+
+<script type="application/ld+json" set:html={JSON.stringify(graph)} />

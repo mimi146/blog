@@ -1,0 +1,14 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PostList from '../../components/PostList.astro';
+import { SITE } from '../../consts';
+import { getPosts } from '../../lib/utils';
+
+const posts = await getPosts();
+---
+
+<BaseLayout title="All posts" description={`Every research note and article write-up on ${SITE.title}, newest first.`}>
+  <h1>All posts</h1>
+  <p class="lede">{posts.length} {posts.length === 1 ? 'note' : 'notes'}, newest first.</p>
+  <PostList posts={posts} />
+</BaseLayout>

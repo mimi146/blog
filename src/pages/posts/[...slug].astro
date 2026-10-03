@@ -1,0 +1,25 @@
+---
+import { render } from 'astro:content';
+import PostLayout from '../../layouts/PostLayout.astro';
+import { getPosts } from '../../lib/utils';
+
+export async function getStaticPaths() {
+  const posts = await getPosts(); // newest first
+  return posts.map((post, i) => ({
+    params: { slug: post.id },
+    props: { post, next: posts[i - 1], prev: posts[i + 1] },
+  }));
+}
+
+const { post, prev, next } = Astro.props;
+// Markdown render errors (e.g. an image without alt text) are only logged by the content loader.
+// Fail the build instead of publishing an empty post.
+if (post.filePath?.endsWith('.md') && !post.rendered) {
+  throw new Error(`"${post.filePath}" failed to render. Check the error logged above: usually an image without alt text (use ![Describe the image](./file.png)) or an invalid Mermaid diagram.`);
+}
+const { Content } = await render(post);
+---
+
+<PostLayout post={post} prev={prev} next={next}>
+  <Content />
+</PostLayout>

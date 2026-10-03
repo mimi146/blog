@@ -1,0 +1,13 @@
+---
+/** Layout for simple Markdown pages such as src/pages/about.md. */
+import BaseLayout from './BaseLayout.astro';
+
+const { frontmatter } = Astro.props;
+---
+
+<BaseLayout title={frontmatter.title} description={frontmatter.description} type={frontmatter.type ?? 'website'} jsonLd={frontmatter.jsonLd ?? []}>
+  <article class="prose">
+    <h1>{frontmatter.heading ?? frontmatter.title}</h1>
+    <slot />
+  </article>
+</BaseLayout>

@@ -1,0 +1,17 @@
+---
+import { tagPath, withBase } from '../lib/utils';
+interface Props { tags: string[]; label?: string }
+const { tags, label = 'Tags' } = Astro.props;
+---
+
+{
+  tags.length > 0 && (
+    <ul class="tags" aria-label={label}>
+      {tags.map((tag) => (
+        <li>
+          <a href={withBase(tagPath(tag))}>#{tag}</a>
+        </li>
+      ))}
+    </ul>
+  )
+}

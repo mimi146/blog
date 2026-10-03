@@ -1,0 +1,23 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getTags, tagPath, withBase } from '../../lib/utils';
+
+const tags = [...(await getTags()).values()].sort((a, b) => a.name.localeCompare(b.name));
+---
+
+<BaseLayout title="Tags" description="Browse research notes and article write-ups by topic: AI, software engineering, design, systems at scale, and more.">
+  <h1>Tags</h1>
+  <p class="lede">Browse notes by topic.</p>
+  <ul class="tag-cloud">
+    {
+      tags.map((t) => (
+        <li>
+          <a href={withBase(tagPath(t.name))}>
+            #{t.name}
+            <span class="count">{t.posts.length}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>

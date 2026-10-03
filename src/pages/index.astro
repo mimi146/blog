@@ -1,0 +1,37 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PostList from '../components/PostList.astro';
+import { SITE } from '../consts';
+import { getPosts, getTags, tagPath, withBase } from '../lib/utils';
+
+const posts = await getPosts();
+const recent = posts.slice(0, 10);
+const tags = [...(await getTags()).entries()].sort((a, b) => b[1].posts.length - a[1].posts.length).slice(0, 12);
+---
+
+<BaseLayout description={SITE.description}>
+  <h1>{SITE.title}</h1>
+  <p class="lede">{SITE.tagline}. Notes from what I read, written down so I understand it better.</p>
+
+  <h2 class="section-title">Recent writing</h2>
+  {recent.length ? <PostList posts={recent} headingLevel="h3" /> : <p>No posts yet. Check back soon.</p>}
+  {posts.length > recent.length && <p><a href={withBase('/posts/')}>All posts →</a></p>}
+
+  {
+    tags.length > 0 && (
+      <>
+        <h2 class="section-title">Topics</h2>
+        <ul class="tag-cloud">
+          {tags.map(([slug, t]) => (
+            <li>
+              <a href={withBase(tagPath(t.name))}>
+                #{t.name}
+                <span class="count">{t.posts.length}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </>
+    )
+  }
+</BaseLayout>

@@ -1,0 +1,52 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { withBase } from '../lib/utils';
+
+// Pagefind builds its index + UI into dist/pagefind/ after `astro build` (see the "build" script).
+const bundle = withBase('/pagefind/');
+---
+
+<BaseLayout title="Search" description="Search all research notes and article write-ups on Milan Niroula's blog." noindex>
+  <h1>Search</h1>
+  <link rel="stylesheet" href={`${bundle}pagefind-component-ui.css`} />
+  <script is:inline type="module" src={`${bundle}pagefind-component-ui.js`}></script>
+
+  <div class="search-ui">
+    <pagefind-config bundle-path={bundle} base-url={withBase('/')}></pagefind-config>
+    <pagefind-input placeholder="Search notes…" autofocus></pagefind-input>
+    <pagefind-summary></pagefind-summary>
+    <pagefind-results></pagefind-results>
+  </div>
+  <noscript>
+    <p>Search needs JavaScript. You can browse <a href={withBase('/posts/')}>all posts</a> or <a href={withBase('/tags/')}>tags</a> instead.</p>
+  </noscript>
+  <p class="search-hint">
+    Tip: the search index is created by <code>npm run build</code>, so use <code>npm run preview</code> to test search locally.
+  </p>
+</BaseLayout>
+
+<style is:global>
+  .search-ui {
+    margin: 1.5rem 0 2rem;
+    --pf-font: var(--font-ui);
+    --pf-text: var(--text);
+    --pf-text-secondary: var(--muted);
+    --pf-text-muted: var(--muted);
+    --pf-background: var(--bg);
+    --pf-border: var(--border);
+    --pf-border-focus: var(--accent);
+    --pf-hover: var(--bg-soft);
+    --pf-skeleton: var(--bg-soft);
+    --pf-skeleton-shine: var(--border);
+    --pf-mark: var(--text);
+    --pf-outline-focus: var(--accent);
+    --pf-input-height: 44px;
+    --pf-input-font-size: 17px;
+    --pf-summary-font-size: 14px;
+    --pf-result-title-font-size: 17px;
+    --pf-result-excerpt-font-size: 15px;
+    --pf-border-radius: 8px;
+  }
+  .search-ui pagefind-summary { display: block; margin: 0.75rem 0; }
+  .search-hint { font-family: var(--font-ui); font-size: 0.85rem; color: var(--muted); }
+</style>

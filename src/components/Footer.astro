@@ -1,0 +1,16 @@
+---
+import { SITE } from '../consts';
+import { withBase } from '../lib/utils';
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="container">
+    <p>© {year} {SITE.author}</p>
+    <nav aria-label="Footer">
+      <a href={withBase('/rss.xml')}>RSS</a>
+      <a href={withBase('/tags/')}>Tags</a>
+      <a href={SITE.social.github} rel="me">GitHub</a>
+    </nav>
+  </div>
+</footer>

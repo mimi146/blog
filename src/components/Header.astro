@@ -1,0 +1,50 @@
+---
+import { SITE } from '../consts';
+import { withBase } from '../lib/utils';
+
+const links = [
+  { href: withBase('/posts/'), label: 'Posts' },
+  { href: withBase('/tags/'), label: 'Tags' },
+  { href: withBase('/about/'), label: 'About' },
+  { href: withBase('/search/'), label: 'Search' },
+];
+const path = Astro.url.pathname;
+const isCurrent = (href: string) => path === href || (href !== withBase('/') && path.startsWith(href));
+---
+
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href={withBase('/')}>{SITE.title}</a>
+    <nav class="nav" aria-label="Main">
+      {links.map((l) => <a href={l.href} aria-current={isCurrent(l.href) ? 'page' : undefined}>{l.label}</a>)}
+      <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Toggle dark mode" aria-pressed="false" title="Toggle dark mode">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<script is:inline>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById('theme-toggle');
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    function sync() { if (btn) btn.setAttribute('aria-pressed', String(root.getAttribute('data-theme') === 'dark')); }
+    function apply(t, persist) {
+      root.setAttribute('data-theme', t);
+      if (persist) { try { localStorage.setItem('theme', t); } catch (e) {} }
+      sync();
+    }
+    sync();
+    if (btn) btn.addEventListener('click', function () {
+      apply(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark', true);
+    });
+    // Follow OS changes until the reader picks a theme explicitly.
+    mq.addEventListener('change', function (e) {
+      var saved = null;
+      try { saved = localStorage.getItem('theme'); } catch (err) {}
+      if (!saved) apply(e.matches ? 'dark' : 'light', false);
+    });
+  })();
+</script>

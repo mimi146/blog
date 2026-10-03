@@ -1,0 +1,18 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PostList from '../../components/PostList.astro';
+import { getTags, withBase } from '../../lib/utils';
+
+export async function getStaticPaths() {
+  const tags = await getTags();
+  return [...tags.entries()].map(([slug, t]) => ({ params: { tag: slug }, props: { name: t.name, posts: t.posts } }));
+}
+
+const { name, posts } = Astro.props;
+---
+
+<BaseLayout title={`Posts tagged “${name}”`} description={`Research notes and write-ups about ${name} by Milan Niroula (${posts.length} ${posts.length === 1 ? 'post' : 'posts'}).`}>
+  <h1>#{name}</h1>
+  <p class="lede">{posts.length} {posts.length === 1 ? 'post' : 'posts'} · <a href={withBase('/tags/')}>All tags</a></p>
+  <PostList posts={posts} />
+</BaseLayout>

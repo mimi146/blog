@@ -1,0 +1,113 @@
+---
+import { Image, getImage } from 'astro:assets';
+import BaseLayout from './BaseLayout.astro';
+import TagList from '../components/TagList.astro';
+import { SITE } from '../consts';
+import { absoluteUrl, formatDate, postPath, readingTime, withBase, type Post } from '../lib/utils';
+
+interface Props {
+  post: Post;
+  prev?: Post;
+  next?: Post;
+}
+const { post, prev, next } = Astro.props;
+const { title, description, pubDate, updatedDate, tags, heroImage, heroAlt } = post.data;
+
+// Social image: the hero image (cropped to 1200x630 PNG) if present, otherwise the site default.
+let ogImage: string = SITE.ogImage;
+let ogImageAlt: string = SITE.ogImageAlt;
+if (heroImage) {
+  const og = await getImage({ src: heroImage, width: 1200, height: 630, format: 'png', fit: 'cover' });
+  ogImage = og.src;
+  ogImageAlt = heroAlt ?? title;
+}
+
+const url = absoluteUrl(postPath(post), Astro.site);
+const homeUrl = absoluteUrl('/', Astro.site);
+const article = {
+  '@type': 'Article',
+  '@id': `${url}#article`,
+  headline: title,
+  description,
+  url,
+  mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+  datePublished: pubDate.toISOString(),
+  dateModified: (updatedDate ?? pubDate).toISOString(),
+  author: { '@type': 'Person', '@id': `${homeUrl}#person`, name: SITE.author, url: absoluteUrl('/about/', Astro.site) },
+  publisher: { '@id': `${homeUrl}#person` },
+  isPartOf: { '@id': `${homeUrl}#website` },
+  image: absoluteUrl(ogImage, Astro.site),
+  keywords: tags.join(', '),
+  inLanguage: SITE.lang,
+  wordCount: (post.body ?? '').split(/\s+/).filter(Boolean).length,
+};
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  type="article"
+  image={ogImage}
+  imageAlt={ogImageAlt}
+  publishedTime={pubDate}
+  modifiedTime={updatedDate}
+  tags={tags}
+  jsonLd={[article]}
+>
+  <article data-pagefind-body>
+    <header class="post-header">
+      <h1>{title}</h1>
+      <p class="lede">{description}</p>
+      <div class="meta">
+        <span>
+          Published <time datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
+        </span>
+        {
+          updatedDate && (
+            <span>
+              Updated <time datetime={updatedDate.toISOString()}>{formatDate(updatedDate)}</time>
+            </span>
+          )
+        }
+        <span>{readingTime(post.body)} min read</span>
+      </div>
+      <TagList tags={tags} />
+    </header>
+
+    {
+      heroImage && (
+        <figure class="hero">
+          <Image src={heroImage} alt={heroAlt ?? ''} widths={[680, 1024, 1360]} sizes="(max-width: 760px) 100vw, 680px" loading="eager" fetchpriority="high" />
+        </figure>
+      )
+    }
+
+    <div class="prose">
+      <slot />
+    </div>
+  </article>
+
+  <footer class="post-footer" data-pagefind-ignore>
+    <p>
+      Thanks for reading. Follow along via <a href={withBase('/rss.xml')}>RSS</a> or browse <a href={withBase('/tags/')}>all tags</a>.
+    </p>
+    {
+      (prev || next) && (
+        <nav class="post-nav" aria-label="More posts">
+          {prev && (
+            <a href={withBase(postPath(prev))} rel="prev">
+              <small>Older</small>
+              {prev.data.title}
+            </a>
+          )}
+          {next && (
+            <a class="next" href={withBase(postPath(next))} rel="next">
+              <small>Newer</small>
+              {next.data.title}
+            </a>
+          )}
+        </nav>
+      )
+    }
+  </footer>
+</BaseLayout>
