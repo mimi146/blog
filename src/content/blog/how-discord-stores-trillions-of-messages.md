@@ -6,21 +6,22 @@ tags: [distributed systems, databases, data modeling, systems at scale]
 draft: false
 ---
 
-Discord decided early on to keep every chat message forever, so users can scroll back through their history on any device. That one product decision has driven two database migrations. First, after hitting MongoDB's limits in late 2015, the messages moved from a single MongoDB replica set to Cassandra. By early 2022 Cassandra had grown to 177 nodes, and the messages moved again, this time to ScyllaDB, with a new Rust "data services" layer in front of it.
+Discord decided early on to keep every chat message forever, so users can scroll back through their history on any device. That one product decision helped drive two database migrations. First, after hitting MongoDB's limits in late 2015, the messages moved from a single MongoDB replica set to Cassandra. By early 2022 Cassandra had grown to 177 nodes, and the messages moved again, this time to ScyllaDB, with a new Rust "data services" layer in front of it.
 
 Discord engineers wrote up both migrations: Stanislav Vishnevskiy's [How Discord Stores Billions of Messages](https://discord.com/blog/how-discord-stores-billions-of-messages) (January 13, 2017) and Bo Ingram's [How Discord Stores Trillions of Messages](https://discord.com/blog/how-discord-stores-trillions-of-messages) (March 6, 2023). I'll call them **[2017]** and **[2023]** below. Every number and specific claim in this post comes from those two articles unless I link something else. Paragraphs marked **My take** are my own analysis, not Discord's.
 
 ```mermaid
 flowchart LR
     accTitle: Timeline of Discord's message storage
-    accDescr: Early 2015, MongoDB replica set. November 2015, 100 million stored messages and the data no longer fits in RAM. January 2017, a 12-node Cassandra cluster. Early 2022, 177 Cassandra nodes holding trillions of messages. May 2022, ScyllaDB with 72 nodes behind Rust data services.
+    accDescr: Early 2015, MongoDB replica set. November 2015, 100 million stored messages and the data no longer fits in RAM. Late 2015 to early 2016, the switch to Cassandra. January 2017, a 12-node Cassandra cluster with replication factor 3. Early 2022, 177 Cassandra nodes holding trillions of messages. May 2022, ScyllaDB with 72 nodes behind Rust data services.
     A["Early 2015<br/>Single MongoDB<br/>replica set"] --> B["Nov 2015<br/>100M stored messages;<br/>data + index exceed RAM"]
-    B --> C["Jan 2017<br/>Cassandra: 12 nodes,<br/>replication factor 3"]
+    B --> M["Late 2015 to early 2016<br/>Switch to Cassandra"]
+    M --> C["Jan 2017<br/>Cassandra: 12 nodes,<br/>replication factor 3"]
     C --> D["Early 2022<br/>Cassandra: 177 nodes,<br/>trillions of messages"]
     D --> E["May 2022<br/>ScyllaDB: 72 nodes,<br/>behind Rust data services"]
 ```
 
-*Figure 1: Milestones in Discord's message storage, as reported in [2017] and [2023].*
+*Figure 1: Milestones in Discord's message storage, as reported in [2017] and [2023]. The Cassandra switch date is approximate: in January 2017, [2017] says it had been "just over a year" since the switch. "Jan 2017" is when [2017] reported the cluster size, not when the migration happened.*
 
 ## The problem: random reads and wildly uneven channels
 
@@ -49,7 +50,7 @@ PRIMARY KEY ((channel_id, bucket), message_id)
 --           ^ partition key       ^ clustering key (Snowflake, time-sortable)
 ```
 
-Snowflakes make the bucket cheap to compute. According to Discord's [API reference](https://discord.com/developers/docs/reference#snowflakes), the top 42 bits of a 64-bit Snowflake are milliseconds since the "Discord Epoch" (the first second of 2015), and `snowflake >> 22` recovers that timestamp. **My take:** that means a bucket can be computed from the ID alone, with something like `(message_id >> 22) / bucket_width_ms`. That expression is my illustration. [2017] doesn't give the formula.
+Snowflakes make the bucket cheap to compute. According to Discord's [API reference](https://docs.discord.com/developers/reference#snowflakes), the top 42 bits of a 64-bit Snowflake are milliseconds since the "Discord Epoch" (the first second of 2015), and `snowflake >> 22` recovers that timestamp. [2017] shows the bucket function in an [embedded code sample](https://gist.github.com/vishnevskiy/ea2f4088ac5cda0bb9abed6a3a2016b6). With `BUCKET_SIZE = 1000 * 60 * 60 * 24 * 10` (10 days in milliseconds), `make_bucket` returns `int((snowflake >> 22) / BUCKET_SIZE)`, and when there's no ID it uses the current time minus the Discord Epoch instead. A companion function, `make_buckets`, returns the range of buckets between two IDs, which is the range the read path walks.
 
 ```mermaid
 flowchart TB
@@ -79,7 +80,7 @@ flowchart TB
 
 ### The read path
 
-To load recent messages, Discord builds a range of buckets running from the current time back to the channel's creation. The `channel_id` is also a Snowflake and must be older than the channel's first message. It then queries those partitions one after another, newest first, until it has enough messages. Rarely active channels may have to walk several buckets, but active channels usually fill the page from the first partition, and active channels are the majority. In testing, writes were sub-millisecond and reads came in under 5 ms. Performance stayed consistent through a week of testing [[2017]](https://discord.com/blog/how-discord-stores-billions-of-messages).
+To load recent messages, Discord builds a range of buckets running from the current time back to the bucket of the `channel_id`. The channel ID is also a Snowflake, and it's created before any message in the channel, so its timestamp marks the oldest bucket that could hold one of the channel's messages. That gives the range a fixed end. Discord then queries those partitions one after another, newest first, until it has enough messages. Rarely active channels may have to walk several buckets, but active channels usually fill the page from the first partition, and active channels are the majority. In testing, writes were sub-millisecond and reads came in under 5 ms. Performance stayed consistent through a week of testing [[2017]](https://discord.com/blog/how-discord-stores-billions-of-messages).
 
 ## What broke after the move to Cassandra
 
@@ -242,7 +243,8 @@ Primary sources:
 
 Background and further reading:
 
-- Discord Developer Docs, [API Reference: Snowflakes](https://discord.com/developers/docs/reference#snowflakes) (the ID format).
+- Stanislav Vishnevskiy, [`buckets.py`](https://gist.github.com/vishnevskiy/ea2f4088ac5cda0bb9abed6a3a2016b6) (GitHub gist embedded in the 2017 post; the bucket functions).
+- Discord Developer Docs, [API Reference: Snowflakes](https://docs.discord.com/developers/reference#snowflakes) (the ID format).
 - Discord blog, [How Discord Indexes Billions of Messages](https://discord.com/blog/how-discord-indexes-billions-of-messages) (the search follow-up promised in the 2017 post).
 - Apache Cassandra documentation, [Tombstones](https://cassandra.apache.org/doc/latest/cassandra/managing/operating/compaction/tombstones.html).
 - Go package [`golang.org/x/sync/singleflight`](https://pkg.go.dev/golang.org/x/sync/singleflight) (in-process request coalescing).
