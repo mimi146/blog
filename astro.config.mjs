@@ -36,7 +36,8 @@ export default defineConfig({
     }),
     syntaxHighlight: { type: 'shiki', excludeLangs: ['mermaid', 'math'] },
     shikiConfig: {
-      themes: { light: 'github-light', dark: 'github-dark' },
+      // The "-default" GitHub themes keep every token color at WCAG AA contrast (4.5:1) in both modes.
+      themes: { light: 'github-light-default', dark: 'github-dark-default' },
       wrap: false,
     },
   },
