@@ -14,7 +14,13 @@ import { createHash } from 'node:crypto';
 let renderer;
 const getRenderer = () => (renderer ??= createMermaidRenderer());
 
-const baseConfig = { fontFamily: 'arial, Helvetica, "Liberation Sans", sans-serif' };
+// SVG <text> labels instead of HTML-in-foreignObject: they survive HTML serialization (no <br> doubling)
+// and aren't affected by the page's CSS.
+const baseConfig = {
+  fontFamily: 'arial, Helvetica, "Liberation Sans", sans-serif',
+  htmlLabels: false,
+  flowchart: { htmlLabels: false },
+};
 
 function isMermaid(node) {
   if (node.tagName === 'pre') {
