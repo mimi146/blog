@@ -6,7 +6,7 @@ tags: [distributed systems, messaging, kafka, redis, job queues]
 draft: false
 ---
 
-Slack’s job queue runs work that is too slow for a web request: every message post, push notification, URL unfurl, calendar reminder, and billing calculation. On the busiest days it processed over **1.4 billion jobs**, peaking at **33,000 per second**, with job times from a few milliseconds to several minutes.
+Slack’s job queue runs work that is too slow for a web request: every message post, push notification, URL unfurl, calendar reminder, and billing calculation. On the busiest days it processed over **1.4 billion jobs**, peaking at **33,000 per second**, with job times from a few milliseconds to several minutes [[Slack 2017]](https://slack.engineering/scaling-slacks-job-queue/).
 
 An outage showed a hard limit of a Redis-only design. Resource contention in the database layer slowed job execution, Redis hit its max memory, and new jobs could not be enqueued. Dequeuing also needed free Redis memory to move a job onto a processing list — so even after the database recovered, the queue stayed locked and needed extensive manual intervention.
 
@@ -62,19 +62,25 @@ They wanted three improvements over time: durable storage as a buffer, a better 
 
 ```mermaid
 flowchart TB
-    accTitle: Feedback loops in the old Redis job queue
-    accDescr: Enqueue faster than dequeue fills Redis memory so neither enqueue nor dequeue works. Adding workers increases polling load. Longer queues make dequeue slower because cost grew with queue length.
-    A["Enqueue rate #gt; dequeue rate"] --> B["Redis approaches max memory"]
-    B --> C["Cannot enqueue new jobs"]
-    B --> D["Cannot dequeue either<br/>needs free memory for in-flight move"]
-    E["Add more workers"] --> F["More polling load on Redis"]
-    F --> B
-    G["Queue length grows"] --> H["Dequeue cost rises<br/>with queue length"]
-    H --> G
-    C ~~~ G
+    accTitle: How a Redis backlog locked up the old job queue
+    accDescr: Adding workers adds polling load, which overloads Redis and slows dequeue. When enqueue outpaces dequeue for a sustained period, Redis hits its memory limit. Then new enqueues fail, and dequeues fail too, because moving a job to the in-flight list needs free memory.
+    E["Add more workers"] --> F["More polling load:<br/>Redis overloaded"]
+    F -->|dequeue slows| A["Enqueue #gt; dequeue,<br/>sustained"]
+    A --> B["Redis hits max memory"]
+    B --> C["Enqueue fails, and<br/>dequeue fails too:<br/>moving a job to the<br/>in-flight list needs memory"]
 ```
 
-*Figure 2: The feedback loops called out in [Slack 2017]. The diagram is my illustration of the article’s constraints.*
+*Figure 2: How a backlog locked up the old queue, as described in [Slack 2017]. The diagram is my illustration.*
+
+```mermaid
+flowchart TB
+    accTitle: Queue-length feedback loop in the old Redis job queue
+    accDescr: As a queue grows, dequeue cost rises because dequeuing took work proportional to queue length. Slower dequeue lets the queue grow further.
+    G["Queue grows"] --> H["Dequeue cost rises<br/>with queue length"]
+    H -->|dequeue slows| G
+```
+
+*Figure 3: The queue-length feedback loop described in [Slack 2017]. The diagram is my illustration.*
 
 ## Kafkagate: getting jobs into Kafka
 
@@ -97,7 +103,7 @@ Design choices:
 
 ## Kafka cluster and how they proved it
 
-Per [Slack 2017]: Kafka **0.10.1.2**, **16 brokers** on **i3.2xlarge**, every topic **32 partitions**, replication factor **3**, retention **2 days**, rack-aware replication (rack = AZ), unclean leader election enabled. They load-tested at expected production rates and failure-tested: kill one broker; kill two in one AZ; kill three to force an unclean leader; restart the cluster — and hit their availability goals.
+Per [Slack 2017]: Kafka **0.10.1.2**, **16 brokers** on **i3.2xlarge**, every topic **32 partitions**, replication factor **3**, retention **2 days**, rack-aware replication (rack = AZ), unclean leader election enabled. They load-tested at expected production rates and failure-tested: kill one broker; kill two in one AZ; hard-kill all three brokers to force an unclean leader; restart the cluster — and hit their availability goals.
 
 ## Production rollout
 
@@ -113,7 +119,7 @@ When enqueue again outpaces dequeue, jobs accumulate in Kafka. Operators adjust 
 | Decision | What Slack gained | What it cost |
 | --- | --- | --- |
 | Kafka in front of Redis (not a full replace) | Write availability under backlog; unchanged worker dequeue interface | Two systems to run; a relay path; scheduler work still ahead |
-| Leader-ack only on produce | Lowest enqueue latency | Small loss window if a broker dies before replicate |
+| Leader-ack only on produce | Lowest enqueue latency | Small loss window if a broker dies before replicating |
 | One JQRelay per topic (Consul lock) | Clear ownership; ASG auto-heal | Per-topic relay throughput ceiling until you re-shard |
 | Offset advance only after Redis write | No silent drop while Redis is down | At-least-once into Redis; duplicates under retry |
 | Re-enqueue job-specific errors to Kafka | Bad job does not stall a partition | Poison jobs can recirculate until fixed |
