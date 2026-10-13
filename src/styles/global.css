@@ -92,7 +92,14 @@ main { padding: 2.5rem 0 4rem; min-height: 60vh; }
 .site-header .container { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 4rem; flex-wrap: wrap; }
 .brand { font-weight: 700; font-size: 1.05rem; color: var(--text); text-decoration: none; letter-spacing: -0.01em; }
 .brand:hover { color: var(--accent); }
-.nav { display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; }
+.nav { display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; margin-left: auto; }
+/* Narrow screens: brand and theme toggle share the first row; the nav gets its own full-width row below. */
+@media (max-width: 640px) {
+  .site-header .container { gap: 0.25rem 1rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  .nav { order: 3; width: 100%; margin-left: -0.5rem; gap: 0; }
+  .nav a { padding: 0.5rem; }
+  .theme-toggle { margin-left: auto; }
+}
 .nav a { color: var(--muted); text-decoration: none; font-size: 0.95rem; padding: 0.5rem 0.6rem; border-radius: 6px; }
 .nav a:hover, .nav a[aria-current='page'] { color: var(--text); background: var(--bg-soft); }
 

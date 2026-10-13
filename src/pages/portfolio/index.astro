@@ -134,9 +134,15 @@ const jsonLd = [
     '@id': `${homeUrl}#person`,
     name: SITE.author,
     alternateName: 'Milan Kumar Niroula',
-    jobTitle: 'Senior Software Engineer',
+    // jobTitle (the resume headline, "Senior Software Engineer") comes from the site-wide node in BaseHead.
+    // The EY role uses the resume's EY title, so the headline is not read as his title at EY.
     description: 'Senior Software Engineer · Backend & Distributed Systems Specialist',
-    worksFor: { '@type': 'Organization', name: 'Ernst & Young LLP' },
+    worksFor: {
+      '@type': 'EmployeeRole',
+      roleName: 'Senior Technology Consultant',
+      startDate: '2024-03',
+      worksFor: { '@type': 'Organization', name: 'Ernst & Young LLP' },
+    },
     address: { '@type': 'PostalAddress', addressLocality: 'Bengaluru', addressCountry: 'IN' },
     alumniOf: { '@type': 'CollegeOrUniversity', name: 'Manipur University' },
     knowsAbout: ['Java', 'Spring Boot', 'Microservices', 'Distributed systems', 'AWS', 'Apache Kafka', 'Redis', 'Kubernetes'],

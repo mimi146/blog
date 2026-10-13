@@ -46,7 +46,8 @@ const person = {
   '@id': `${homeUrl}#person`,
   name: SITE.author,
   url: absoluteUrl('/about/', Astro.site),
-  jobTitle: 'Software Engineer',
+  // Headline title from the resume. The employer-specific role lives on /portfolio/ (worksFor → EmployeeRole).
+  jobTitle: 'Senior Software Engineer',
   sameAs: Object.values(SITE.social),
 };
 const website = {
