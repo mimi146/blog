@@ -25,7 +25,7 @@ export default defineConfig({
     mdx(),
     sitemap({
       // Utility pages that shouldn't be indexed.
-      filter: (page) => !/\/(search|404)\/?$/.test(new URL(page).pathname),
+      filter: (page) => !/\/(search|404|portfolio\/thanks)\/?$/.test(new URL(page).pathname),
     }),
   ],
   markdown: {
