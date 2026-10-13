@@ -97,6 +97,19 @@ const experience = [
   },
 ];
 
+// Featured project (from Milan, not on the resume). The repo is private, so it is not linked.
+const featured = {
+  name: 'AttendIQ',
+  tagline: 'Featured · Attendance SaaS',
+  intro: 'An attendance SaaS I designed and built end to end.',
+  points: [
+    'Live sync for about 50 biometric devices.',
+    'Sends attendance data in bulk through webhooks, so it can integrate with any system.',
+    'A full CI/CD pipeline on GitHub Actions that deploys to AWS EC2.',
+  ],
+  customer: { name: 'Koksamlai', site: 'bio.goschool.in', href: 'https://bio.goschool.in/' },
+};
+
 const projects = [
   {
     name: 'Biometric Attendance System',
@@ -205,6 +218,13 @@ const jsonLd = [
 
     <section aria-labelledby="projects">
       <h2 id="projects">Notable projects</h2>
+      <section class="job featured" aria-labelledby="proj-attendiq">
+        <h3 id="proj-attendiq">{featured.name}</h3>
+        <p class="meta">{featured.tagline}</p>
+        <p>{featured.intro}</p>
+        <ul>{featured.points.map((pt) => <li>{pt}</li>)}</ul>
+        <p>The customer {featured.customer.name} built <a href={featured.customer.href}>{featured.customer.site}</a> on it.</p>
+      </section>
       {projects.map((p) => (
         <section class="job">
           <h3>{p.name}</h3>
@@ -271,6 +291,9 @@ const jsonLd = [
   .skills dd { margin: 0; }
   @media (max-width: 600px) { .skills > div { grid-template-columns: 1fr; } }
   .job { margin-bottom: 1.5rem; }
+  .featured { padding: 0.25rem 1.25rem 0.5rem; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius); background: var(--bg-soft); }
+  .featured h3 { margin-top: 1rem; }
+  .featured :last-child { margin-bottom: 0.75rem; }
   .job h3 { margin: 1.5rem 0 0.25rem; }
   .job .meta { justify-content: space-between; margin-bottom: 0.75rem; }
   .job h4 { margin: 1.25rem 0 0.5rem; }
