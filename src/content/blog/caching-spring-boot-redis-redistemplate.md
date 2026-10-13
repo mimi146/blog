@@ -2,6 +2,7 @@
 title: 'Caching in Spring Boot with Redis and RedisTemplate'
 description: 'How to integrate Redis as a caching layer in a Spring Boot application using RedisTemplate to reduce database load and response times, step by step with code.'
 pubDate: 2026-10-14
+updatedDate: 2026-10-14
 tags: [spring boot, redis, caching, java]
 draft: false
 ---
@@ -30,6 +31,10 @@ First, include the necessary dependencies in your `pom.xml` (for Maven projects)
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-data-redis</artifactId>
 </dependency>
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
+</dependency>
 ```
 
 ### 2. Configure Redis
@@ -37,8 +42,8 @@ First, include the necessary dependencies in your `pom.xml` (for Maven projects)
 Add the following Redis configuration in `application.properties`:
 
 ```properties
-spring.redis.host=localhost
-spring.redis.port=6379
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
 ```
 
 If using a Dockerized Redis, run the following command:
@@ -56,6 +61,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
@@ -65,24 +71,27 @@ public class RedisConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(new StringRedisSerializer());
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
         return template;
     }
 }
 ```
 
-By default, `StringRedisSerializer` serializes all data into string format. However, if you want to store data in JSON format, you should use `GenericJackson2JsonRedisSerializer` instead. This ensures structured and readable storage of complex objects.
+By default, `RedisTemplate` uses JDK serialization (`JdkSerializationRedisSerializer`). In the config above, `StringRedisSerializer` stores keys as plain strings, and `GenericJackson2JsonRedisSerializer` stores values in JSON format. This ensures structured and readable storage of complex objects, and values that aren’t Strings don’t throw a `ClassCastException`.
 
 ```java
+// At the top of RedisConfig:
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
-redisTemplate.setValueSerializer(new GenericJackson2JsonRedisSerializer());
+
+// Inside redisTemplate(...):
+template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
 ```
 
 This allows storing objects in JSON rather than plain strings, making it easier to work with structured data in Redis.
 
 ### 4. Implement Caching Using RedisTemplate
 
-Interacting with Redis using `RedisTemplate`.
+Now let’s interact with Redis using `RedisTemplate`.
 
 #### Cache Data Example
 
@@ -162,7 +171,7 @@ public void removeProduct(String id) {
 
 ## Testing Redis Caching
 
-Run the Spring Boot application and call the `getProductById` method multiple times. The first call will take longer, but subsequent calls will fetch data instantly from Redis.
+Run the Spring Boot application and call the `getProductById` method multiple times. The first call will take longer, but subsequent calls will fetch data from Redis much faster.
 
 ## Conclusion
 
