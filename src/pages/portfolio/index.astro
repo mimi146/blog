@@ -1,0 +1,290 @@
+---
+/**
+ * Portfolio page, built from Milan's resume. Every fact and number below is copied from the resume.
+ * Privacy: no phone number, no resume file, and no download link on this page. The resume is only sent by
+ * email, after Milan approves a request made through the form at the bottom.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SITE } from '../../consts';
+import { absoluteUrl, withBase } from '../../lib/utils';
+
+const title = 'Portfolio';
+const description =
+  'Milan Niroula, senior software engineer for backend and distributed systems: Java, Spring Boot, AWS, Kafka, and Redis across fintech and enterprise SaaS.';
+
+// Form handling: FormSubmit (https://formsubmit.co) posts here and emails the request to Milan.
+// After the first activation, replace the email in this URL with the random alias string FormSubmit sends,
+// so the address no longer appears in the page HTML: https://formsubmit.co/<alias>
+const FORM_ACTION = 'https://formsubmit.co/niroulamilan37@gmail.com';
+const thanksUrl = absoluteUrl('/portfolio/thanks/');
+
+const links = [
+  { label: 'GitHub', href: SITE.social.github, rel: 'me' },
+  { label: 'Blog', href: withBase('/'), rel: undefined },
+  // LinkedIn and HackerRank: the resume's links point only to https://linkedin.com/ and https://hackerrank.com/,
+  // not to a profile. Add the profile URLs here once known, for example:
+  // { label: 'LinkedIn', href: 'https://www.linkedin.com/in/<handle>/', rel: 'me' },
+  // { label: 'HackerRank', href: 'https://www.hackerrank.com/profile/<handle>', rel: 'me' },
+];
+
+const skills = [
+  ['Languages', 'Java (Primary), Python, PHP, Shell Scripting'],
+  ['Frameworks & APIs', 'Spring Boot, Microservices, RESTful APIs, JUnit, Maven'],
+  ['Cloud & DevOps', 'AWS (EC2, S3, Lambda), Docker, Kubernetes, Argo CD, CI/CD'],
+  ['Databases & Caching', 'MySQL, Redis (in-memory caching), DBMS, Data Archival Pipelines'],
+  ['Messaging & Security', 'Apache Kafka, HashiCorp Vault, Spring Security, OAuth2'],
+  ['Tools & Platforms', 'Apache Tomcat, Linux, Git, IntelliJ, Postman'],
+  ['Specializations', 'Distributed Systems Design, High-Throughput Processing, DSA, Security & Compliance'],
+];
+
+const highlights = [
+  '1,000ms latency reduction via Redis caching — measurable UX impact across 45K+ users.',
+  '40% deployment cycle reduction at Goldman Sachs via Argo CD adoption.',
+  '99.9% production uptime maintained at Morgan Stanley financial trading platform.',
+  '50% default rate reduction in fintech through real-time data tracking and automated alerts.',
+  '1.2M+ visitor system delivered with zero downtime for State Carnival Ticketing.',
+  'Closed critical CVEs and achieved security compliance via HashiCorp Vault across 12+ services.',
+];
+
+const experience = [
+  {
+    role: 'Senior Technology Consultant',
+    org: 'Ernst & Young LLP, Bengaluru',
+    dates: 'March 2024 – Present',
+    engagements: [
+      {
+        name: 'Engagement: Morgan Stanley',
+        dates: 'Feb 2025 – Present',
+        points: [
+          'Architect and deliver distributed microservices for high-traffic financial trading platforms, improving system modularity and enabling independent scaling of critical services.',
+          'Streamlined client onboarding pipelines through automated service integration and API contract design, cutting manual effort by ~30%.',
+          'Maintained 99.9% system availability across production environments through rapid incident response, proactive monitoring, and continuous performance tuning.',
+          'Collaborated with cross-functional teams across time zones to align technical delivery with business milestones.',
+        ],
+      },
+      {
+        name: 'Engagement: Goldman Sachs',
+        dates: 'Mar 2024 – Dec 2024',
+        points: [
+          'Engineered scalable backend authentication APIs using Spring Boot and Python (Boto3), optimising S3 data retrieval for millions of verification requests daily.',
+          'Designed and implemented an automated data archival pipeline using cron jobs and S3 lifecycle policies, reducing storage costs and improving historical data retrieval time by 35%.',
+          'Led a legacy system migration from Apache Tomcat 5 to Tomcat 7, achieving a 25% performance improvement and closing critical security vulnerabilities.',
+          'Automated CI/CD deployment workflows by adopting Argo CD, cutting release cycle time by 40% and reducing human error in deployments.',
+          'Implemented HashiCorp Vault for centralised secrets management, achieving enterprise-grade security compliance and eliminating hardcoded credentials across 12+ services.',
+        ],
+      },
+    ],
+  },
+  {
+    role: 'Backend Engineer',
+    org: 'KOKSAMLAI IT Solutions, Manipur / Remote',
+    dates: 'October 2018 – March 2024',
+    engagements: [
+      {
+        name: '',
+        dates: '',
+        points: [
+          'Architected an AWS-based multi-tenant SaaS platform serving 45,000+ active users with high availability and fault tolerance (EC2, S3, Lambda).',
+          'Reduced system latency by 1,000ms through strategic Redis caching of biometric data, directly improving user experience across authentication-heavy workflows.',
+          'Designed distributed application layers capable of handling 5,000+ concurrent users, achieving a 40% throughput increase under peak load.',
+          'Built and maintained robust role-based authentication and authorisation systems (RBAC), improving overall security posture by 70%.',
+          'Led engineering delivery for a State Carnival Ticketing System processing 1.2M+ visitor records, maintaining 100% uptime during high-traffic events.',
+          'Developed a data-driven loan tracking system for a fintech client that reduced default rates by 50% through real-time delinquency alerts and automated follow-up workflows.',
+          'Mentored 3 junior engineers, conducted code reviews, and established team-wide coding standards and Git workflows.',
+        ],
+      },
+    ],
+  },
+];
+
+const projects = [
+  {
+    name: 'Biometric Attendance System',
+    org: 'KOKSAMLAI IT Solutions',
+    text: 'Designed and delivered a biometric-based employee attendance tracking system, improving attendance accuracy by 90% over manual registers and integrating with payroll workflows.',
+  },
+  {
+    name: 'State Carnival Ticketing System',
+    org: 'KOKSAMLAI IT Solutions',
+    text: 'Led the full backend engineering effort for a government-scale ticketing platform serving 1.2M+ visitors; ensured 100% uptime during peak load through load balancing and pre-event stress testing.',
+  },
+];
+
+const education = [
+  ['Bachelor of Science (B.Sc)', 'Manipur University, 2016'],
+  ['Professional Certification in Software Engineering', 'NIIT, 2017'],
+];
+
+const homeUrl = absoluteUrl('/');
+const pageUrl = absoluteUrl('/portfolio/');
+const jsonLd = [
+  {
+    '@type': 'ProfilePage',
+    '@id': `${pageUrl}#profile`,
+    url: pageUrl,
+    name: `${title} · ${SITE.title}`,
+    description,
+    inLanguage: SITE.lang,
+    isPartOf: { '@id': `${homeUrl}#website` },
+    mainEntity: { '@id': `${homeUrl}#person` },
+  },
+  {
+    // Same @id as the site-wide Person node, so these properties extend it.
+    '@type': 'Person',
+    '@id': `${homeUrl}#person`,
+    name: SITE.author,
+    alternateName: 'Milan Kumar Niroula',
+    jobTitle: 'Senior Software Engineer',
+    description: 'Senior Software Engineer · Backend & Distributed Systems Specialist',
+    worksFor: { '@type': 'Organization', name: 'Ernst & Young LLP' },
+    address: { '@type': 'PostalAddress', addressLocality: 'Bengaluru', addressCountry: 'IN' },
+    alumniOf: { '@type': 'CollegeOrUniversity', name: 'Manipur University' },
+    knowsAbout: ['Java', 'Spring Boot', 'Microservices', 'Distributed systems', 'AWS', 'Apache Kafka', 'Redis', 'Kubernetes'],
+    sameAs: Object.values(SITE.social),
+  },
+];
+---
+
+<BaseLayout {title} {description} type="profile" jsonLd={jsonLd}>
+  <article class="portfolio">
+    <header class="portfolio-header">
+      <h1>Milan Kumar Niroula</h1>
+      <p class="lede">Senior Software Engineer · Backend &amp; Distributed Systems Specialist</p>
+      <p class="meta">Bengaluru, India</p>
+      <ul class="portfolio-links" aria-label="Profiles">
+        {links.map((l) => <li><a href={l.href} rel={l.rel}>{l.label}</a></li>)}
+        <li><a href="#request">Request my resume</a></li>
+      </ul>
+    </header>
+
+    <section aria-labelledby="summary">
+      <h2 id="summary">Summary</h2>
+      <p>
+        Senior Software Engineer with 7+ years of end-to-end ownership of high-traffic backend systems across fintech,
+        enterprise SaaS, and government platforms. Deep expertise in Java/Spring Boot microservices, distributed systems,
+        and AWS-native architectures. Delivered measurable impact: 1,000ms latency reduction, 40% throughput improvement,
+        99.9% uptime, and 50% default-rate reduction in fintech. Adept at leading engineering teams, navigating complex
+        stakeholder environments (Goldman Sachs, Morgan Stanley), and evolving legacy systems into modern, cloud-native
+        stacks.
+      </p>
+    </section>
+
+    <section aria-labelledby="highlights">
+      <h2 id="highlights">Key achievements</h2>
+      <ul>{highlights.map((h) => <li>{h}</li>)}</ul>
+    </section>
+
+    <section aria-labelledby="skills">
+      <h2 id="skills">Skills</h2>
+      <dl class="skills">
+        {skills.map(([k, v]) => (<div><dt>{k}</dt><dd>{v}</dd></div>))}
+      </dl>
+    </section>
+
+    <section aria-labelledby="experience">
+      <h2 id="experience">Experience</h2>
+      {experience.map((job) => (
+        <section class="job">
+          <h3>{job.role}</h3>
+          <p class="meta"><span>{job.org}</span><span>{job.dates}</span></p>
+          {job.engagements.map((e) => (
+            <>
+              {e.name && <h4>{e.name} <span class="dates">· {e.dates}</span></h4>}
+              <ul>{e.points.map((p) => <li>{p}</li>)}</ul>
+            </>
+          ))}
+        </section>
+      ))}
+    </section>
+
+    <section aria-labelledby="projects">
+      <h2 id="projects">Notable projects</h2>
+      {projects.map((p) => (
+        <section class="job">
+          <h3>{p.name}</h3>
+          <p class="meta">{p.org}</p>
+          <p>{p.text}</p>
+        </section>
+      ))}
+    </section>
+
+    <section aria-labelledby="education">
+      <h2 id="education">Education &amp; certifications</h2>
+      <ul>{education.map(([d, s]) => <li><strong>{d}</strong> — {s}</li>)}</ul>
+    </section>
+
+    <section aria-labelledby="request" class="request">
+      <h2 id="request">Request my resume</h2>
+      <p>
+        I share my full resume by email on request. Tell me who you are and why you’d like it, and I’ll reply
+        personally. Every field is required.
+      </p>
+      <form class="request-form" action={FORM_ACTION} method="POST">
+        <div class="field">
+          <label for="rf-name">Name</label>
+          <input id="rf-name" name="name" type="text" autocomplete="name" required maxlength="120" />
+        </div>
+        <div class="field">
+          <label for="rf-email">Email</label>
+          <input id="rf-email" name="email" type="email" autocomplete="email" required maxlength="200" />
+        </div>
+        <div class="field">
+          <label for="rf-company">Company</label>
+          <input id="rf-company" name="company" type="text" autocomplete="organization" required maxlength="200" />
+        </div>
+        <div class="field">
+          <label for="rf-reason">Reason for the request</label>
+          <textarea id="rf-reason" name="reason" rows="5" required maxlength="2000"></textarea>
+        </div>
+        <!-- Honeypot: FormSubmit discards any submission where this field is filled in. Hidden from people and screen readers. -->
+        <div class="hp" aria-hidden="true">
+          <label for="rf-honey">Leave this field empty</label>
+          <input id="rf-honey" type="text" name="_honey" tabindex="-1" autocomplete="off" />
+        </div>
+        <input type="hidden" name="_subject" value="Resume request from the blog portfolio page" />
+        <input type="hidden" name="_captcha" value="false" />
+        <input type="hidden" name="_template" value="table" />
+        <input type="hidden" name="_next" value={thanksUrl} />
+        <button type="submit">Send request</button>
+        <p class="form-note">Your details go only to me, through <a href="https://formsubmit.co/">FormSubmit</a>, and are used only to reply to this request.</p>
+      </form>
+    </section>
+  </article>
+</BaseLayout>
+
+<style>
+  .portfolio-header { margin-bottom: 1rem; }
+  .portfolio-header .lede { margin-bottom: 0.5rem; }
+  .portfolio-links { list-style: none; padding: 0; margin: 1rem 0 0; display: flex; flex-wrap: wrap; gap: 0.5rem; font-family: var(--font-ui); font-size: 0.95rem; }
+  .portfolio-links a { display: inline-block; padding: 0.4rem 0.8rem; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; background: var(--bg-soft); }
+  .portfolio-links a:hover { border-color: var(--accent); }
+  .portfolio li + li { margin-top: 0.3em; }
+  .skills { margin: 0 0 1.25em; }
+  .skills > div { display: grid; grid-template-columns: minmax(9rem, 13rem) 1fr; gap: 0.25rem 1rem; padding: 0.45rem 0; border-bottom: 1px solid var(--border); }
+  .skills dt { font-family: var(--font-ui); font-weight: 600; font-size: 0.95rem; }
+  .skills dd { margin: 0; }
+  @media (max-width: 600px) { .skills > div { grid-template-columns: 1fr; } }
+  .job { margin-bottom: 1.5rem; }
+  .job h3 { margin: 1.5rem 0 0.25rem; }
+  .job .meta { justify-content: space-between; margin-bottom: 0.75rem; }
+  .job h4 { margin: 1.25rem 0 0.5rem; }
+  .job h4 .dates { font-weight: 400; color: var(--muted); }
+  .request { margin-top: 3rem; padding: 1.5rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft); }
+  .request h2 { margin-top: 0; }
+  .request-form { display: grid; gap: 1rem; font-family: var(--font-ui); }
+  .field { display: grid; gap: 0.35rem; }
+  .field label { font-weight: 600; font-size: 0.95rem; }
+  .request-form input, .request-form textarea {
+    font: inherit; font-size: 1rem; width: 100%; padding: 0.6rem 0.75rem; color: var(--text); background: var(--bg);
+    border: 1px solid var(--muted); border-radius: 6px;
+  }
+  .request-form textarea { resize: vertical; min-height: 7rem; }
+  .request-form input:focus-visible, .request-form textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .request-form button {
+    justify-self: start; font: inherit; font-weight: 600; padding: 0.65rem 1.25rem; border: 0; border-radius: 6px; cursor: pointer;
+    background: var(--accent); color: var(--bg);
+  }
+  .request-form button:hover { background: var(--accent-hover); }
+  .form-note { font-size: 0.85rem; color: var(--muted); margin: 0; }
+  .hp { position: absolute !important; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+</style>

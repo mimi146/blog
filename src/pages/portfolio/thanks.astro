@@ -1,0 +1,10 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { withBase } from '../../lib/utils';
+---
+
+<BaseLayout title="Request received" description="Thanks for requesting Milan Niroula's resume." noindex>
+  <h1>Thanks, your request is in</h1>
+  <p class="lede">I read every request myself and will reply by email if I can share my resume with you.</p>
+  <p>Back to the <a href={withBase('/portfolio/')}>portfolio</a> or the <a href={withBase('/')}>blog</a>.</p>
+</BaseLayout>
