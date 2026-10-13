@@ -1,7 +1,7 @@
 ---
 title: 'Scaling Memcache at Facebook: leases, Gutter, and commit-log invalidation'
 description: 'How Facebook scaled memcached to billions of requests per second: leases against thundering herds, Gutter pools, mcsqueal invalidation, and remote markers.'
-pubDate: 2026-10-11
+pubDate: 2026-10-13
 tags: [distributed systems, caching, memcached, consistency, papers]
 draft: false
 ---
@@ -46,8 +46,8 @@ flowchart TB
 
 A cluster has hundreds of memcached servers, and keys are spread by consistent hashing. So in a short period every web server talks to every memcached server. Memcached servers never talk to each other. The logic lives in a **stateless client**, either as a library or as a proxy called **mcrouter**.
 
-- **Batching.** Application code builds a DAG of data dependencies to fetch as many keys in parallel as it can. Batches average 24 keys.
-- **UDP for gets.** Web threads send gets straight to memcached over UDP, skipping mcrouter. Dropped or reordered packets are errors with no recovery. At peak, 0.25% of gets are discarded. A failed get counts as a miss, and the client skips the follow-up set so it doesn’t load a struggling server. UDP was about 20% faster than TCP through mcrouter.
+- **Batching.** Application code builds a DAG of data dependencies to fetch as many keys in parallel as it can. Batches average 24 keys (§3.1).
+- **UDP for gets.** Web threads send gets straight to memcached over UDP, skipping mcrouter. Dropped or reordered packets are errors with no recovery. At peak, 0.25% of gets are discarded. A failed get counts as a miss, and the client skips the follow-up set so it doesn’t load a struggling server. UDP was about 20% faster than TCP through mcrouter (§3.1).
 - **TCP for sets and deletes.** These go through a local mcrouter, which also pools connections. A TCP connection from every web thread to every server would use too much memory.
 - **Incast control.** If hundreds of replies arrive at once they can overwhelm rack and cluster switches. Clients use a sliding window of outstanding requests across all servers. The window grows slowly on success and shrinks when a request goes unanswered.
 
@@ -72,24 +72,24 @@ flowchart TB
 
 *Figure 2: The lease mechanism described in §3.2.1 of [Nishtala 2013], drawn as numbered steps. The sequence is illustrative.*
 
-For a set of keys prone to herds, measured over a week, peak database queries dropped from **17K/s without leases to 1.3K/s with them**. Deleted values also stay briefly in a recently-deleted area. A get can return them marked as stale, so apps that can tolerate it don’t have to wait.
+For a set of keys prone to herds, measured over a week, peak database queries dropped from **17K/s without leases to 1.3K/s with them** (§3.2.1). Deleted values also stay briefly in a recently-deleted area. A get can return them marked as stale, so apps that can tolerate it don’t have to wait.
 
 ## Pools and Gutter
 
 Keys with different churn interfered with each other. Low-churn keys that were still useful got evicted before high-churn keys nobody read any more. So a cluster is split into **pools**: a default `wildcard` pool plus dedicated pools for awkward workloads. Some pools are **replicated**. When every request asks for all the keys on a server, splitting the keys across two servers leaves each still handling every request. Replicas halve the load instead.
 
-When a server fails, automated remediation can take a few minutes, which is long enough for a cascade. About 1% of a cluster’s servers form a **Gutter** pool. A client that gets no response retries against Gutter and fills Gutter on a miss. Gutter entries expire quickly instead of being invalidated. Facebook avoided rehashing onto the remaining servers because one key can be 20% of a server’s traffic, and moving it could overload the next server. Gutter cut client-visible failures by 99%.
+When a server fails, automated remediation can take a few minutes, which is long enough for a cascade. About 1% of a cluster’s servers form a **Gutter** pool. A client that gets no response retries against Gutter and fills Gutter on a miss. Gutter entries expire quickly instead of being invalidated. Facebook avoided rehashing onto the remaining servers because one key can be 20% of a server’s traffic, and moving it could overload the next server. Gutter cut client-visible failures by 99% (§3.3).
 
 ## Regions and commit-log invalidation
 
 Making one cluster bigger makes hot keys hotter and incast worse. So Facebook split web and cache servers into several **frontend clusters** that share one **storage cluster**. Together they form a **region**.
 
-Invalidation comes from the database. SQL statements carry the memcache keys to delete after commit. A daemon called **mcsqueal** on each database reads committed statements and sends batched deletes to mcrouters in every frontend cluster, which route them to the right servers. Batching improved the median deletes per packet by 18×. Having web servers broadcast deletes would batch worse, and when deletes went wrong, for example misrouted by a config error, it used to take a rolling restart of the whole fleet. Deletes stored in the commit log can simply be replayed.
+Invalidation comes from the database. SQL statements carry the memcache keys to delete after commit. A daemon called **mcsqueal** on each database reads committed statements and sends batched deletes to mcrouters in every frontend cluster, which route them to the right servers. Batching improved the median deletes per packet by 18× (§4.1). Having web servers broadcast deletes would batch worse, and when deletes went wrong, for example misrouted by a config error, it used to take a rolling restart of the whole fleet. Deletes stored in the commit log can simply be replayed.
 
 Two more regional tools:
 
-- **Regional pools** store data like large, rarely read items once per region instead of once per cluster. Cross-cluster links had 40% less average bandwidth, so this only makes sense for low-traffic data.
-- **Cold cluster warmup** lets an empty cluster fill misses from a warm cluster instead of the database, cutting ramp-up from days to hours. Deletes in the cold cluster carry a two-second hold-off that rejects `add`. This stops a stale copy from the warm cluster from landing after a newer write.
+- **Regional pools** store data like large, rarely read items once per region instead of once per cluster. Cross-cluster links had 40% less average bandwidth (§4.2), so this only makes sense for low-traffic data.
+- **Cold cluster warmup** lets an empty cluster fill misses from a warm cluster instead of the database, cutting ramp-up from days to hours (§4.3). Deletes in the cold cluster carry a two-second hold-off that rejects `add`. This stops a stale copy from the warm cluster from landing after a newer write.
 
 ```mermaid
 flowchart TB
@@ -97,17 +97,17 @@ flowchart TB
     accDescr: The master region, shown on top, has a MySQL commit log that feeds mcsqueal, which sends batched deletes to its frontend clusters. MySQL replication carries changes and deletes down to the replica region, whose own mcsqueal invalidates its frontend clusters. Writes from the replica region go to the master after setting a remote marker in a regional pool.
     subgraph Master["Master region"]
         direction TB
-        MDB[("Master MySQL<br/>commit log")] --> MQ["mcsqueal"]
-        MQ -->|"batched<br/>deletes"| F1["Frontend clusters"]
+        MDB[("MySQL master<br/>commit log")] --> MQ["mcsqueal"]
+        MQ -->|"batched<br/>deletes"| F1["Frontends"]
     end
     subgraph Replica["Replica region"]
         direction TB
-        RDB[("Replica MySQL")] --> RQ["mcsqueal"]
-        RQ -->|"deletes"| F3["Frontend clusters"]
-        F3 -.->|"set marker r_k"| RP[("Regional pool")]
+        RDB[("MySQL replica")] --> RQ["mcsqueal"]
+        RQ -->|"deletes"| F3["Frontends"]
+        F3 -.->|"set r_k"| RP[("Regional<br/>pool")]
     end
-    MDB -->|"replication:<br/>data + deletes"| RDB
-    F3 -->|"writes to<br/>master"| MDB
+    MDB -->|"replication<br/>+ deletes"| RDB
+    F3 -->|"writes"| MDB
     F1 ~~~ RDB
 ```
 
@@ -130,7 +130,7 @@ For writes from a non-master region, Facebook uses **remote markers**. To update
 | Lease rate limiting | Readers wait or read stale | Peak DB load 17K/s → 1.3K/s on herd-prone keys |
 | Gutter pool | About 1% extra servers, brief staleness | No hot-key cascade |
 | mcsqueal invalidation | Extra pipeline and some lag | Batching, replay, correct cross-region order |
-| Remote markers | Cross-region latency on some misses | Read-your-writes despite lag, most of the time |
+| Remote markers | Cross-region latency on some misses | Fewer stale reads after your own writes |
 
 Facebook also checked invalidation directly. It sampled 1 in a million deletes and later checked whether the key was still cached. In the master region, deletes reached four 9s within 1 second and five 9s within an hour. Between replica regions, they reached three 9s within 1 second and four 9s within 10 minutes.
 
