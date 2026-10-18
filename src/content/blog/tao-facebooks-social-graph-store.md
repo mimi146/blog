@@ -32,14 +32,15 @@ An **association list** is every edge with a given `(id1, atype)`, sorted **desc
 Bidirectional relationships are two associations. Types can declare an **inverse**; writes then couple to the inverse edge. Those two shard updates are **not atomic**. A failure can leave a forward without an inverse—a **hanging association**—repaired asynchronously (§4.2).
 
 ```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 12, "padding": 6, "diagramPadding": 4}}}%%
 flowchart TB
     accTitle: Checkin as objects and associations
     accDescr: Alice authors a checkin object linked to the Golden Gate Bridge landmark. The checkin tags Bob and has a comment from Cathy that David likes. Nodes are typed objects; edges are typed associations.
-    Alice["Alice USER"] -->|"AUTHORED"| Checkin["Checkin CHECKIN"]
-    Checkin -->|"CHECKIN"| Bridge["GG Bridge LANDMARK"]
-    Checkin -->|"TAGGED"| Bob["Bob USER"]
-    Checkin -->|"COMMENT"| Comment["Cathy comment"]
-    Comment -->|"LIKES"| David["David USER"]
+    Alice["Alice<br/>USER"] -->|"AUTHORED"| Checkin["Checkin<br/>CHECKIN"]
+    Checkin -->|"CHECKIN"| Bridge["GG Bridge<br/>LANDMARK"]
+    Checkin -->|"TAGGED"| Bob["Bob<br/>USER"]
+    Checkin -->|"COMMENT"| Comment["Cathy<br/>comment"]
+    Comment -->|"LIKES"| David["David<br/>USER"]
 ```
 
 *Figure 1: Redrawn from Figure 1 / §3 of [Bronson 2013]. Layout is mine; the paper’s example uses the same idea.*
@@ -56,23 +57,24 @@ The cache implements the full API. Servers form a **tier**. To avoid hot spots a
 Object updates send **invalidations** to followers. Association writes send **refill** messages instead: only contiguous prefixes of lists are cached, so a naive invalidate would truncate the list and throw away still-valid edges. A refill asks the leader to refresh the follower’s list (§4.4).
 
 ```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 12, "padding": 6, "diagramPadding": 4}}}%%
 flowchart TB
     accTitle: Multi-region TAO master and slave
     accDescr: In the master region, clients hit followers, which talk to a leader cache that writes to the master database. Replication carries data and consistency messages to the slave region database. The slave region leader sends writes to the master leader and serves read misses from the slave database.
     subgraph Master["Master region for shard"]
         direction TB
         MC["Clients"] --> MF["Followers"]
-        MF --> ML["Leader cache"]
-        ML -->|"A: writes + consistency msgs"| MDB[("Master DB")]
+        MF --> ML["Leader<br/>cache"]
+        ML -->|"A: writes +<br/>consistency<br/>msgs"| MDB[("Master DB")]
     end
     subgraph Slave["Slave region for shard"]
         direction TB
         SC["Clients"] --> SF["Followers"]
-        SF --> SL["Leader cache"]
-        SL -->|"D: read misses"| SDB[("Slave DB")]
+        SF --> SL["Leader<br/>cache"]
+        SL -->|"D: read<br/>misses"| SDB[("Slave DB")]
     end
-    MDB -->|"replication + B: consistency"| SDB
-    SL -->|"C: writes"| ML
+    MDB -->|"replication<br/>+ B:<br/>consistency"| SDB
+    SL -->|"C:<br/>writes"| ML
 ```
 
 *Figure 2: Redrawn from Figure 2 / §4.5 of [Bronson 2013]. Mastership is chosen per shard.*
