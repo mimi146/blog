@@ -43,6 +43,11 @@
 /* ---------- Base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* Guard against horizontal overflow from gutter breakouts (wide TOC aside, wide
+   Mermaid diagrams). `overflow-x: clip` contains any accidental spill WITHOUT
+   creating a scroll container, so it does not break `position: sticky` on the TOC
+   (unlike overflow-x:hidden/auto). Vertical scrolling is untouched. */
+html, body { overflow-x: clip; }
 body {
   margin: 0;
   background: var(--bg);
@@ -177,9 +182,14 @@ main { padding: 2.5rem 0 4rem; min-height: 60vh; }
 .toc a:hover, .toc a:focus-visible { color: var(--accent); }
 
 /* Wide screens: lift the TOC into the right gutter as a sticky aside so it sits
-   beside the text column without narrowing the readable measure. Uses the same
-   breakout pattern as wide Mermaid diagrams; .container max-width is untouched. */
-@media (min-width: 1040px) {
+   beside the text column without narrowing the readable measure. The breakout
+   width is 15rem + 1.5rem gap + 17rem negative margin; the float's right edge
+   reaches content-right + 17rem = viewportCenter + 34ch + 17rem, which only fits
+   inside the viewport once vw exceeds ~68ch + 34rem (~1144px for the serif stack).
+   The breakpoint is therefore set to 1200px so the gutter genuinely holds the
+   float; the html/body `overflow-x: clip` guard above contains any residual spill
+   as belt-and-suspenders, so no horizontal scrollbar can appear. */
+@media (min-width: 1200px) {
   .toc {
     position: sticky;
     top: 2rem;
@@ -192,6 +202,11 @@ main { padding: 2.5rem 0 4rem; min-height: 60vh; }
 .prose > :first-child { margin-top: 0; }
 .prose h2 { padding-top: 0.25rem; }
 .prose li + li { margin-top: 0.3em; }
+/* Reader-friendly prose: avoid orphan/widow lines in paragraphs where supported
+   (progressive, harmless fallback) and wrap long URLs/tokens inside links so they
+   never force horizontal overflow of the text column. */
+.prose p { text-wrap: pretty; }
+.prose a { overflow-wrap: break-word; }
 .prose img { border-radius: var(--radius); display: block; margin: 1.75rem auto; }
 .prose figure img { margin-bottom: 0.5rem; }
 .prose figcaption, .prose img + em { display: block; text-align: center; font-size: 0.9rem; color: var(--muted); font-family: var(--font-ui); }
@@ -211,8 +226,13 @@ main { padding: 2.5rem 0 4rem; min-height: 60vh; }
   opacity: 0;
 }
 .prose .heading-anchor:hover { color: var(--accent); }
-.prose :is(h1, h2, h3, h4, h5, h6):hover .heading-anchor,
-.prose .heading-anchor:focus-visible { opacity: 1; }
+/* Revealed on heading hover only. The autolink anchor is emitted aria-hidden +
+   tabindex="-1" (decorative, not keyboard-focusable), so a :focus-visible reveal
+   would be dead code; it is intentionally omitted. Keyboard users deep-link via
+   the TOC instead. On coarse-pointer / no-hover devices (touch), where hover never
+   fires, the anchors stay hidden — this is acceptable because they are purely
+   decorative duplicates of the TOC links, which remain fully usable by tap. */
+.prose :is(h1, h2, h3, h4, h5, h6):hover .heading-anchor { opacity: 1; }
 @media (prefers-reduced-motion: no-preference) {
   .prose .heading-anchor { transition: opacity 0.15s ease; }
 }
@@ -299,6 +319,14 @@ pre code { font-family: inherit; }
 .copy-btn:focus-visible { opacity: 1; }
 .copy-btn:hover { color: var(--text); border-color: var(--accent); }
 .copy-btn[data-copied] { color: var(--accent); border-color: var(--accent); opacity: 1; }
+/* Touch / coarse-pointer / no-hover devices never hover and cannot focus the
+   non-focusable <pre>, so the hover/focus reveal above never fires there. Keep the
+   button persistently visible on those devices so tap-to-copy stays reachable —
+   the primary place a reader wants it. Pointer (mouse) devices keep the subtle
+   hover reveal. */
+@media (hover: none), (pointer: coarse) {
+  .copy-btn { opacity: 1; }
+}
 
 /* Reading-progress bar: thin fixed bar at the very top, above the header. */
 .reading-progress {
