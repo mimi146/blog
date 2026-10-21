@@ -9,8 +9,15 @@ interface Props {
   post: Post;
   prev?: Post;
   next?: Post;
+  headings?: { depth: number; slug: string; text: string }[];
 }
-const { post, prev, next } = Astro.props;
+const { post, prev, next, headings = [] } = Astro.props;
+
+// Build a table of contents from Astro's rendered headings (h2/h3 only).
+// Astro slugs are github-slugger based — identical to the ids rehype-slug writes — so a
+// pure "#<slug>" fragment resolves to the heading id already in the built HTML.
+const tocItems = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const showToc = tocItems.length >= 2;
 const { title, description, pubDate, updatedDate, tags, heroImage, heroAlt } = post.data;
 
 // Social image: the hero image (cropped to 1200x630 PNG) if present, otherwise the site default.
@@ -79,6 +86,21 @@ const article = {
         <figure class="hero">
           <Image src={heroImage} alt={heroAlt ?? ''} widths={[680, 1024, 1360]} sizes="(max-width: 760px) 100vw, 680px" loading="eager" fetchpriority="high" />
         </figure>
+      )
+    }
+
+    {
+      showToc && (
+        <nav class="toc" aria-label="Table of contents" data-pagefind-ignore>
+          <p class="toc-title">On this page</p>
+          <ul>
+            {tocItems.map((h) => (
+              <li class={h.depth === 3 ? 'toc-sub' : undefined}>
+                <a href={`#${h.slug}`}>{h.text}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
       )
     }
 

@@ -149,6 +149,46 @@ main { padding: 2.5rem 0 4rem; min-height: 60vh; }
 .hero { margin: 0 0 2rem; }
 .hero img { border-radius: var(--radius); display: block; width: 100%; height: auto; }
 
+/* ---------- Table of contents ---------- */
+/* Narrow screens: an unobtrusive block above the prose. Token-driven, so it is
+   correct in light and both dark mechanisms without theme-specific overrides. */
+.toc {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 2rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.toc-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.toc ul { list-style: none; margin: 0; padding: 0; }
+.toc li { margin: 0.25rem 0; }
+.toc li.toc-sub { padding-left: 1rem; }
+.toc a { color: var(--muted); text-decoration: none; }
+.toc a:hover, .toc a:focus-visible { color: var(--accent); }
+
+/* Wide screens: lift the TOC into the right gutter as a sticky aside so it sits
+   beside the text column without narrowing the readable measure. Uses the same
+   breakout pattern as wide Mermaid diagrams; .container max-width is untouched. */
+@media (min-width: 1040px) {
+  .toc {
+    position: sticky;
+    top: 2rem;
+    float: right;
+    width: 15rem;
+    margin: 0.25rem -17rem 1.5rem 1.5rem;
+  }
+}
+
 .prose > :first-child { margin-top: 0; }
 .prose h2 { padding-top: 0.25rem; }
 .prose li + li { margin-top: 0.3em; }
