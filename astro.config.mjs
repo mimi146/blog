@@ -6,7 +6,10 @@ import { unified } from '@astrojs/markdown-remark';
 
 import remarkRequireAlt from './src/plugins/remark-require-alt.mjs';
 import remarkDemoteH1 from './src/plugins/remark-demote-h1.mjs';
+import rehypeSlug from 'rehype-slug';
+import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeBaseLinks from './src/plugins/rehype-base-links.mjs';
+import rehypeExternalLinks from './src/plugins/rehype-external-links.mjs';
 import rehypeMermaidThemed from './src/plugins/rehype-mermaid-themed.mjs';
 
 const SITE = 'https://mimi146.github.io';
@@ -32,7 +35,25 @@ export default defineConfig({
     // remark/rehype pipeline (needed for our plugins). Applies to .md and .mdx.
     processor: unified({
       remarkPlugins: [remarkRequireAlt, remarkDemoteH1],
-      rehypePlugins: [[rehypeBaseLinks, { base: BASE }], rehypeMermaidThemed],
+      rehypePlugins: [
+        [rehypeBaseLinks, { base: BASE }],
+        rehypeSlug,
+        [
+          rehypeAutolinkHeadings,
+          {
+            behavior: 'append',
+            properties: {
+              className: ['heading-anchor'],
+              ariaHidden: true,
+              tabIndex: -1,
+              'data-pagefind-ignore': true,
+            },
+            content: { type: 'text', value: '#' },
+          },
+        ],
+        [rehypeExternalLinks, { site: SITE }],
+        rehypeMermaidThemed,
+      ],
     }),
     syntaxHighlight: { type: 'shiki', excludeLangs: ['mermaid', 'math'] },
     shikiConfig: {

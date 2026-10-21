@@ -157,6 +157,37 @@ main { padding: 2.5rem 0 4rem; min-height: 60vh; }
 .prose figcaption, .prose img + em { display: block; text-align: center; font-size: 0.9rem; color: var(--muted); font-family: var(--font-ui); }
 .prose :is(h2, h3, h4) a { color: inherit; text-decoration: none; }
 
+/* Anchor/TOC jumps land the heading clear of the viewport top instead of flush against it. */
+.prose :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: 2rem; }
+
+/* Autolinked heading anchor: hidden until the heading is hovered or the anchor is focused. */
+.prose :is(h1, h2, h3, h4, h5, h6) { position: relative; }
+.prose .heading-anchor {
+  margin-left: 0.3em;
+  padding: 0 0.15em;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 400;
+  opacity: 0;
+}
+.prose .heading-anchor:hover { color: var(--accent); }
+.prose :is(h1, h2, h3, h4, h5, h6):hover .heading-anchor,
+.prose .heading-anchor:focus-visible { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .prose .heading-anchor { transition: opacity 0.15s ease; }
+}
+
+/* Subtle outbound cue on external prose links (set by rehype-external-links). */
+.prose a[data-external]::after {
+  content: '\2197'; /* north-east arrow */
+  display: inline-block;
+  margin-left: 0.15em;
+  font-size: 0.85em;
+  line-height: 1;
+  color: var(--muted);
+}
+.prose a[data-external]:hover::after { color: var(--accent-hover); }
+
 /* Inline code + code blocks (Shiki dual themes) */
 :not(pre) > code {
   font-family: var(--font-mono); font-size: 0.86em; background: var(--bg-soft); border: 1px solid var(--border);
