@@ -61,6 +61,10 @@ const article = {
   tags={tags}
   jsonLd={[article]}
 >
+  <div class="reading-progress" aria-hidden="true" data-pagefind-ignore>
+    <div class="reading-progress__bar"></div>
+  </div>
+
   <article data-pagefind-body>
     <header class="post-header">
       <h1>{title}</h1>
@@ -132,4 +136,101 @@ const article = {
       )
     }
   </footer>
+
+  <script is:inline>
+    // Copy-to-clipboard buttons for Shiki code blocks. Injected client-side so the
+    // button never enters the built HTML that Pagefind reads. Vanilla IIFE, resilient
+    // if elements are absent; only touches <pre> inside .prose, never inline code.
+    (function () {
+      function init() {
+        if (!document.body) return;
+        var canCopy = !!(navigator.clipboard && navigator.clipboard.writeText);
+        if (!canCopy) return; // graceful no-op: never render a button that cannot work
+        var blocks = document.querySelectorAll('.prose pre');
+        for (var i = 0; i < blocks.length; i++) {
+          (function (pre) {
+            // Belt-and-suspenders: Mermaid renders as figure.mermaid-diagram (no <pre>),
+            // but defensively skip anything that is, or lives inside, a Mermaid node.
+            if (pre.classList.contains('mermaid')) return;
+            if (pre.closest && pre.closest('.mermaid-diagram')) return;
+
+            var wrapper = document.createElement('div');
+            wrapper.className = 'code-block';
+            var parent = pre.parentNode;
+            if (!parent) return;
+            parent.insertBefore(wrapper, pre);
+            wrapper.appendChild(pre);
+
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'copy-btn';
+            btn.setAttribute('aria-label', 'Copy code');
+            btn.textContent = 'Copy';
+            wrapper.appendChild(btn);
+
+            var revert;
+            btn.addEventListener('click', function () {
+              var codeEl = pre.querySelector('code');
+              var text = codeEl ? codeEl.textContent : pre.textContent;
+              try {
+                navigator.clipboard.writeText(text || '').then(function () {
+                  btn.setAttribute('data-copied', '');
+                  btn.setAttribute('aria-label', 'Copied');
+                  btn.textContent = 'Copied';
+                  if (revert) clearTimeout(revert);
+                  revert = setTimeout(function () {
+                    btn.removeAttribute('data-copied');
+                    btn.setAttribute('aria-label', 'Copy code');
+                    btn.textContent = 'Copy';
+                  }, 2000);
+                }, function () {});
+              } catch (e) {}
+            });
+          })(blocks[i]);
+        }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+
+  <script is:inline>
+    // Reading-progress bar reflecting scroll through the article. Vanilla IIFE,
+    // rAF-throttled, resilient if the elements are absent.
+    (function () {
+      function init() {
+        var bar = document.querySelector('.reading-progress__bar');
+        var article = document.querySelector('article[data-pagefind-body]') || document.querySelector('article');
+        if (!bar || !article) return;
+        var ticking = false;
+        function update() {
+          ticking = false;
+          var rect = article.getBoundingClientRect();
+          var viewport = window.innerHeight || document.documentElement.clientHeight;
+          // Distance scrolled past the article top, over the scrollable span of the article.
+          var total = rect.height - viewport;
+          var progress = total > 0 ? (-rect.top) / total : (rect.top <= 0 ? 1 : 0);
+          if (progress < 0) progress = 0;
+          if (progress > 1) progress = 1;
+          bar.style.transform = 'scaleX(' + progress + ')';
+        }
+        function onScroll() {
+          if (ticking) return;
+          ticking = true;
+          window.requestAnimationFrame(update);
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll);
+        update();
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
 </BaseLayout>

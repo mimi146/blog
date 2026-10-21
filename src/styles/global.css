@@ -276,3 +276,34 @@ pre code { font-family: inherit; }
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
 }
+
+/* ---------- Reader UI: copy button + reading progress (post pages only) ---------- */
+/* Copy-to-clipboard button. The .code-block wrapper is injected client-side so the
+   button never enters the built HTML Pagefind reads. Token-driven, so it reads
+   correctly in light and both dark mechanisms without theme-specific overrides. */
+.code-block { position: relative; }
+.copy-btn {
+  position: absolute; top: 0.5rem; right: 0.5rem; z-index: 1;
+  font-family: var(--font-ui); font-size: 0.75rem; line-height: 1;
+  padding: 0.35rem 0.55rem; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-soft); color: var(--muted); cursor: pointer;
+  opacity: 0;
+}
+.code-block:hover .copy-btn,
+.code-block:focus-within .copy-btn,
+.copy-btn:focus-visible { opacity: 1; }
+.copy-btn:hover { color: var(--text); border-color: var(--accent); }
+.copy-btn[data-copied] { color: var(--accent); border-color: var(--accent); opacity: 1; }
+
+/* Reading-progress bar: thin fixed bar at the very top, above the header. */
+.reading-progress {
+  position: fixed; top: 0; left: 0; width: 100%; height: 3px; z-index: 20;
+  background: transparent; pointer-events: none;
+}
+.reading-progress__bar {
+  height: 100%; width: 100%; transform: scaleX(0); transform-origin: left;
+  background: var(--accent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .copy-btn { transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+}
