@@ -1,0 +1,23 @@
+# Build output and dependencies
+dist/
+node_modules/
+.astro/
+
+# Lockfile and generated/binary assets
+package-lock.json
+public/
+
+# Astro telemetry / tooling task state
+.agents/
+
+# Existing hand-authored content and markup are intentionally formatted and
+# predate this tooling. Prettier is added purely for new code, so these are
+# left untouched to avoid a reformatting churn of the existing source.
+README.md
+*.md
+*.astro
+*.css
+
+# These two plugins use authored line breaks that Prettier would reflow.
+src/plugins/rehype-mermaid-themed.mjs
+src/plugins/remark-require-alt.mjs
