@@ -272,6 +272,11 @@ pre code { font-family: inherit; }
 .post-nav a { display: block; padding: 0.9rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); text-decoration: none; }
 .post-nav small { display: block; color: var(--muted); }
 .post-nav .next { text-align: right; grid-column: 2; }
+/* Single neighbor (newest post = prev/"Older" only; oldest post = .next/"Newer"
+   only): span the full width so there is no empty grid cell. Overrides the
+   hard-coded grid-column:2 and text-align:right on a lone .next. */
+.post-nav a:only-child { grid-column: 1 / -1; }
+.post-nav .next:only-child { text-align: left; }
 
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
@@ -306,4 +311,36 @@ pre code { font-family: inherit; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .copy-btn { transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+}
+
+/* ---------- Print: clean black-on-white article for PDF export ---------- */
+/* Scoped entirely under @media print so screen rendering is unaffected. Hides
+   non-content chrome and renders readable article text. Mermaid diagrams are
+   intentionally NOT hidden so the currently-shown light/dark variant prints. */
+@media print {
+  :root {
+    --bg: #fff; --bg-soft: #fff; --text: #000; --muted: #333;
+    --border: #999; --accent: #000; --accent-hover: #000; --code-bg: #fff;
+  }
+  body { background: #fff; color: #000; }
+
+  .site-header,
+  .site-footer,
+  .theme-toggle,
+  .skip-link,
+  .toc,
+  .reading-progress,
+  .post-nav,
+  .copy-btn,
+  .code-block .copy-btn,
+  .heading-anchor,
+  .prose .heading-anchor { display: none !important; }
+
+  /* Full-width, no gutters for a clean printed page. */
+  .container { max-width: none; margin: 0; padding: 0; }
+  main { padding: 0; min-height: 0; }
+  .prose { max-width: none; }
+
+  /* Avoid awkward page breaks inside code blocks, figures, and diagrams. */
+  pre, figure, .mermaid-diagram { break-inside: avoid; }
 }
