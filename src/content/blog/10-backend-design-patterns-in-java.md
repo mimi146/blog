@@ -8,13 +8,15 @@ draft: false
 
 This post was inspired by Cloud X Berry's video [“10 Backend Design Pattern Laws of Senior Engineers and Architects”](https://www.facebook.com/reel/1863959601445893/). It runs through ten patterns in about 14 minutes, using e-commerce and payment examples. Here I go through the same ten patterns more slowly. For each one I cover the problem it solves, a short Java example built on the video's scenarios, when not to use it, and how Spring already gives it to you.
 
-All the code is Java 21 with Spring Boot 3.5. Every snippet comes from a small Maven project that compiles, and 21 JUnit tests cover all ten patterns. Those include `@SpringBootTest` tests for the event and circuit-breaker examples and a Spring Data JPA + H2 test for the repository. The snippets below are trimmed: imports, packages and some getters are left out.
+All the code is Java 21 with Spring Boot 3.5. Every snippet comes from a small Maven project that compiles, and 27 JUnit tests cover all ten patterns. Those include `@SpringBootTest` tests for the event and circuit-breaker examples and a Spring Data JPA + H2 test for the repository. The snippets below are trimmed: imports, packages and some getters are left out.
+
+**Spring Boot 3.5 is no longer supported as open source.** Its OSS support ended on 30 June 2026. 3.5.16 was “the last OSS release of the 3.5.x generation”, and Spring's advice is to upgrade to 4.0.x or 4.1.x; commercial support continues ([spring.io: Spring Boot 3.5.16](https://spring.io/blog/2026/06/25/spring-boot-3-5-16-available-now), [endoflife.date: Spring Boot](https://endoflife.date/spring-boot)). For a new project, start on Boot 4. The pattern code is the same there. Two dependencies change, both covered in the circuit-breaker section: use `resilience4j-spring-boot4` and `spring-boot-starter-aspectj`. I checked this by building a copy of the demo on Boot 4.1.2, where all the tests pass. The only other change was in a test: `@DataJpaTest` now comes from `spring-boot-starter-data-jpa-test`, in the package `org.springframework.boot.data.jpa.test.autoconfigure`.
 
 The payment providers are simulated, so nothing here calls Stripe, Razorpay or PayPal. Definitions are cited to their sources. Library defaults are cited to the Spring and Resilience4j documentation.
 
 ## A quick map
 
-Seven of the ten come from the 1994 “Gang of Four” (GoF) book, *Design Patterns: Elements of Reusable Object-Oriented Software* by Gamma, Helm, Johnson and Vlissides: Factory (Method), Singleton, Strategy, Observer, Builder, Adapter and Decorator. The book catalogues 23 patterns in all ([Wikipedia: Design Patterns](https://en.wikipedia.org/wiki/Design_Patterns)). Repository comes from Martin Fowler's *Patterns of Enterprise Application Architecture* ([Fowler: Repository](https://martinfowler.com/eaaCatalog/repository.html)). CQRS and Circuit Breaker are architecture patterns from the 2000s, and Fowler has written about both ([Fowler: CQRS](https://martinfowler.com/bliki/CQRS.html), [Fowler: CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html)).
+Seven of the ten come from the 1994 “Gang of Four” (GoF) book, *Design Patterns: Elements of Reusable Object-Oriented Software* by Gamma, Helm, Johnson and Vlissides: Factory (Method), Singleton, Strategy, Observer, Builder, Adapter and Decorator. The book catalogs 23 patterns in all ([Wikipedia: Design Patterns](https://en.wikipedia.org/wiki/Design_Patterns)). Repository comes from Martin Fowler's *Patterns of Enterprise Application Architecture* ([Fowler: Repository](https://martinfowler.com/eaaCatalog/repository.html)). CQRS and Circuit Breaker are architecture patterns from the late 2000s and early 2010s, and Fowler has written about both ([Fowler: CQRS](https://martinfowler.com/bliki/CQRS.html), [Fowler: CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html)).
 
 | Pattern | Problem in one line | Spring gives you |
 |---|---|---|
@@ -25,7 +27,7 @@ Seven of the ten come from the 1994 “Gang of Four” (GoF) book, *Design Patte
 | Observer | One action must trigger many side effects | `ApplicationEventPublisher`, `@EventListener` |
 | Builder | Constructors with many optional fields | (records + a nested builder) |
 | Adapter | Third-party API shape leaks into your code | (plain Java is enough) |
-| Decorator | Cross-cutting behaviour mixed into core logic | AOP proxies |
+| Decorator | Cross-cutting behavior mixed into core logic | AOP proxies |
 | CQRS | One model can't serve heavy reads and complex writes | Events between the two sides |
 | Circuit Breaker | A dead dependency drags your service down with it | Resilience4j `@CircuitBreaker` |
 
@@ -136,7 +138,7 @@ public final class PaymentProviderFactory {
 }
 ```
 
-The caller now only writes `PaymentProviderFactory.forName(config.provider()).charge(amount, "INR")`. Adding a fourth provider changes the `permits` list and one `case`. The `default` branch makes a typo in configuration fail loudly instead of silently falling back.
+The caller now only writes `PaymentProviderFactory.forName(config.provider()).charge(amount, "INR")`. Adding a fourth provider means a new class, a new entry in the `permits` list and one more `case`. The compiler won't remind you about that `case`: this switch is on a `String`, so sealing the interface doesn't make it exhaustive, unlike the switch over `Tier` in section 4. The `default` branch makes a typo in configuration fail loudly instead of silently falling back.
 
 **When not to use it, and pitfalls.**
 
@@ -272,11 +274,11 @@ The `switch` over the enum has no `default`. If someone adds a `Tier`, the code 
 %%{init: {"flowchart": {"nodeSpacing": 12, "padding": 6, "diagramPadding": 4}}}%%
 flowchart TB
   accTitle: Observer flow for an order event
-  accDescr: OrderService publishes one OrderPlaced event. Spring delivers it to three independent listeners that reserve stock, send an email and add loyalty points. OrderService does not know about any of them.
+  accDescr: OrderService publishes one OrderPlaced event. Spring delivers it to three independent listeners for inventory, email and loyalty points. OrderService does not know about any of them.
   S["OrderService"] -->|"publishEvent"| E(["OrderPlaced"])
-  E --> L1["reserveStock"]
-  E --> L2["sendEmail"]
-  E --> L3["addPoints"]
+  E --> L1["inventory"]
+  E --> L2["email"]
+  E --> L3["loyalty"]
 ```
 
 The pattern itself is small. Here it is in plain Java:
@@ -351,12 +353,23 @@ public class OrderListeners {
 
 **The problem.** The video's example is a user profile with a name and email plus many optional fields: phone, address, company, social links and preferences. A constructor with seven positional arguments, several of them `null`, is easy to get wrong silently. Builder separates the construction of a complex object from its representation ([Wikipedia: Builder pattern](https://en.wikipedia.org/wiki/Builder_pattern), citing GoF).
 
-A record holds the data, and a nested builder handles the optional fields and validation:
+A record holds the data and enforces its own rules, and a nested builder handles the optional fields:
 
 ```java
 public record UserProfile(
         String name, String email, String phone, String address,
         String company, List<String> socialLinks, boolean marketingEmails) {
+
+    // Compact constructor: every path, including new UserProfile(...),
+    // gets the same checks and an unmodifiable copy of the list.
+    public UserProfile {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(email, "email");
+        if (!email.contains("@")) {
+            throw new IllegalArgumentException("Invalid email: " + email);
+        }
+        socialLinks = List.copyOf(socialLinks);
+    }
 
     public static Builder builder(String name, String email) {
         return new Builder(name, email);
@@ -374,20 +387,18 @@ public record UserProfile(
         private boolean marketingEmails = false;
 
         private Builder(String name, String email) {
-            this.name = Objects.requireNonNull(name, "name");
-            this.email = Objects.requireNonNull(email, "email");
+            this.name = name;
+            this.email = email;
         }
 
         public Builder phone(String phone) { this.phone = phone; return this; }
         public Builder company(String company) { this.company = company; return this; }
-        public Builder socialLinks(List<String> links) { this.socialLinks = List.copyOf(links); return this; }
+        public Builder socialLinks(List<String> links) { this.socialLinks = links; return this; }
         public Builder marketingEmails(boolean optIn) { this.marketingEmails = optIn; return this; }
         // address(...) omitted
 
+        // The record's constructor does the validation and copying.
         public UserProfile build() {
-            if (!email.contains("@")) {
-                throw new IllegalStateException("Invalid email: " + email);
-            }
             return new UserProfile(name, email, phone, address, company,
                     socialLinks, marketingEmails);
         }
@@ -403,12 +414,12 @@ UserProfile p = UserProfile.builder("Ravi", "ravi@example.com")
         .build();
 ```
 
-Three design choices are worth copying. Required fields go in `builder(...)`, so you can't forget them. `build()` validates the whole object once. `List.copyOf` means the finished record can't be changed through the list the caller passed in.
+Three design choices are worth copying. Required fields go in `builder(...)`, so you can't forget them. The checks live in the record's compact constructor, not in `build()`. A record's canonical constructor is public, so checks that only ran in `build()` could be skipped with a plain `new UserProfile(...)`. Here both paths are validated. `List.copyOf` in the same place means the finished record can't be changed through the list the caller passed in. The tests cover both paths, including a direct constructor call with a bad email and with a list the caller modifies afterwards.
 
 **When not to use it, and pitfalls.**
 
 - **Small records.** For three required fields, the record's canonical constructor is clearer. Records are already concise and immutable, so a builder only helps when there are many optional fields.
-- **Builders that skip validation.** If `build()` doesn't check invariants, you have a verbose constructor that can still produce invalid objects.
+- **Builders that skip validation.** If nothing checks invariants, in `build()` or better in the constructor it calls, you have a verbose constructor that can still produce invalid objects.
 - **Builders for JPA entities.** Entities have a lifecycle managed by JPA (note the protected no-argument constructor on `CustomerOrder`). Build DTOs and value objects, then map them.
 
 ## 7. Adapter: translate a third-party API into your own
@@ -456,24 +467,26 @@ public class AcmePayAdapter implements PaymentGateway {
         // ...and their response into our model.
         Status status = switch (raw.get("result_code")) {
             case "ok" -> Status.SUCCEEDED;
-            default -> Status.DECLINED;
+            case null, default -> Status.DECLINED; // missing result_code too
         };
         return new PaymentResult(raw.get("txn_ref"), status);
     }
 }
 ```
 
-`longValueExact()` throws an `ArithmeticException` if the result has a fractional part, which is the behaviour you want for money: ₹499.505 is a bug to surface, not something to round away (there is a test for this). The test checks that ₹499.50 is sent as 49950 paise, and that the vendor's `card_declined` comes back as our `DECLINED`.
+`longValueExact()` throws an `ArithmeticException` if the result has a fractional part, which is the behavior you want for money: ₹499.505 is a bug to surface, not something to round away (there is a test for this). The test checks that ₹499.50 is sent as 49950 paise, and that the vendor's `card_declined` comes back as our `DECLINED`.
+
+The `case null` label matters because vendor responses are untrusted input. In Java 21, switching on a `null` `String` throws a `NullPointerException` unless the switch has a `case null`. Without that label, a response with no `result_code` would crash the adapter instead of being translated. A test sends exactly that response and gets `DECLINED`.
 
 **When not to use it, and pitfalls.**
 
 - **Leaking vendor types.** If `PaymentResult` contains the vendor's error enum, the adapter has only moved the coupling.
-- **Collapsing errors.** The `default -> DECLINED` above is fine for a demo. In production, map timeouts, fraud blocks and invalid requests to different outcomes, because callers need to handle them differently.
+- **Collapsing errors.** The `case null, default -> DECLINED` above is fine for a demo. In production, map timeouts, fraud blocks and invalid requests to different outcomes, because callers need to handle them differently. A response with no status at all is malformed, and you may prefer to reject it with a clear exception rather than call it a decline.
 - **Adapting code you own.** If both sides are yours, change one of them instead of adding a translator.
 
-## 8. Decorator: add behaviour by wrapping, not by editing
+## 8. Decorator: add behavior by wrapping, not by editing
 
-**The problem.** The video's example is a product service that later needs caching, logging, metrics and authorization. Putting all of that into `ProductService` mixes concerns, and subclassing for every combination doesn't scale. A decorator adds behaviour to an object dynamically by wrapping it in another object with the same interface: a flexible alternative to subclassing ([Wikipedia: Decorator pattern](https://en.wikipedia.org/wiki/Decorator_pattern)).
+**The problem.** The video's example is a product service that later needs caching, logging, metrics and authorization. Putting all of that into `ProductService` mixes concerns, and subclassing for every combination doesn't scale. A decorator adds behavior to an object dynamically by wrapping it in another object with the same interface: a flexible alternative to subclassing ([Wikipedia: Decorator pattern](https://en.wikipedia.org/wiki/Decorator_pattern)).
 
 ```java
 public interface ProductCatalog {
@@ -539,6 +552,7 @@ The test looks up `SKU-1` twice and `SKU-2` once. The database is hit twice, bec
 - **Deep stacks.** Five wrappers make stack traces and debugging harder. For concerns that apply everywhere, such as logging or tracing, a framework-level aspect or filter is usually clearer than hand-written wrappers.
 - **Order bugs.** Authorization outside the cache and authorization inside the cache behave differently. Write down the intended order.
 - **Unbounded caches.** The `ConcurrentHashMap` above never evicts entries. That's fine for a demo, but in production it grows until you run out of memory. Use a cache with size or time limits.
+- **Slow loads inside `computeIfAbsent`.** Here the mapping function is the database call. The `ConcurrentHashMap` Javadoc says some update operations by other threads may be blocked while the computation is in progress, “so the computation should be short and simple”. It also stores nothing when the function returns `null`, so a SKU that doesn't exist goes back to the database on every lookup ([Java 21: ConcurrentHashMap](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ConcurrentHashMap.html#computeIfAbsent(K,java.util.function.Function))). In production, use a real cache library such as Caffeine, or Spring's `@Cacheable` backed by one. Decide on purpose whether “not found” should be cached.
 
 ## 9. CQRS: separate models for writes and reads
 
@@ -548,13 +562,13 @@ The test looks up `SKU-1` twice and `SKU-2` once. The database is hit twice, bec
 %%{init: {"flowchart": {"nodeSpacing": 12, "padding": 6, "diagramPadding": 4}}}%%
 flowchart TB
   accTitle: CQRS write and read split
-  accDescr: A command goes to the command handler, which updates the write store and publishes an event. A projection listens to the event and updates a read model. Queries are served from the read model only.
+  accDescr: A command goes to the command handler, which updates the write store and publishes an event. A projection listens to the event and updates a read model. The query service reads only from the read model.
   C["PlaceOrder command"] --> H["Command handler"]
   H --> W[("Write store")]
   H -->|"publishes"| E(["OrderCreated"])
   E --> P["Projection"]
   P --> R[("Read model")]
-  Q["Query service"] -->|"reads"| R
+  R -->|"read by"| Q["Query service"]
 ```
 
 Commands express intent and return no data to read. Events record what happened. A sealed interface and records describe both:
@@ -606,7 +620,7 @@ public class OrderCommandHandler {
 }
 ```
 
-The read side keeps a denormalised view shaped for one screen, “my account”, and the query service only reads it:
+The read side keeps a denormalized view shaped for one screen, “my account”, and the query service only reads it:
 
 ```java
 @Component
@@ -650,9 +664,9 @@ public class OrderQueryService {
 }
 ```
 
-The `@SpringBootTest` places two orders (₹300 and ₹200), cancels the first and checks that the summary shows one open order worth ₹200.
+The `@SpringBootTest` places two orders (₹300 and ₹200), cancels the first and checks that the summary shows one open order worth ₹200. A second test replays the events in the wrong order, as described below.
 
-**This demo is the easy version, on purpose.** Both models live in one process, and Spring events are synchronous, so the read model is updated before `handle()` returns. Fowler notes that the two models may share a database or use separate ones. With separate databases you need a mechanism to carry changes from one side to the other, and the read side becomes eventually consistent ([Fowler: CQRS](https://martinfowler.com/bliki/CQRS.html)). In a real system, the user who just placed an order may not see it in the read model for a moment, and your UI has to cope with that. If the events go through a broker, the projection also has to handle duplicate and out-of-order events. If you keep in-process events and use a real database, update the projection with `@TransactionalEventListener`, so it only sees committed writes ([Spring: Transaction-bound events](https://docs.spring.io/spring-framework/reference/data-access/transaction/event.html)).
+**This demo is the easy version, on purpose.** Both models live in one process, and Spring events are synchronous, so the read model is updated before `handle()` returns. Fowler notes that the two models may share a database or use separate ones. With separate databases you need a mechanism to carry changes from one side to the other, and the read side becomes eventually consistent ([Fowler: CQRS](https://martinfowler.com/bliki/CQRS.html)). In a real system, the user who just placed an order may not see it in the read model for a moment, and your UI has to cope with that. Events can also arrive out of order, even in one process. Nothing holds a lock between the write-store update and `publishEvent`, so a `CancelOrder` running at the same time as a `PlaceOrder` can publish `OrderCancelled` before the `OrderCreated` for the same order. `computeIfPresent` then ignores the cancel, and the summary shows a canceled order as open. The test that replays the events in that order shows the result. With a broker in between, duplicates join the list. A real projection needs a way to detect events that are out of order or seen twice, such as a per-order version number. If you keep in-process events and use a real database, update the projection with `@TransactionalEventListener`, so it only sees committed writes ([Spring: Transaction-bound events](https://docs.spring.io/spring-framework/reference/data-access/transaction/event.html)).
 
 **When not to use it, and pitfalls.**
 
@@ -700,7 +714,11 @@ resilience4j:
         automaticTransitionFromOpenToHalfOpenEnabled: false
 ```
 
-The Spring Boot 3 module needs `spring-boot-starter-aop` and `spring-boot-starter-actuator` at runtime ([Resilience4j: Spring Boot 3](https://resilience4j.readme.io/docs/getting-started-3)). The demo's `pom.xml` uses `resilience4j-spring-boot3` version 2.4.0 with both starters. The protected client:
+The Spring Boot 3 module needs `spring-boot-starter-aop` and `spring-boot-starter-actuator` at runtime ([Resilience4j: Spring Boot 3](https://resilience4j.readme.io/docs/getting-started-3)). The demo's `pom.xml` uses `resilience4j-spring-boot3` version 2.4.0 with both starters.
+
+**On Spring Boot 4, both names change.** Resilience4j 2.4.0 added a separate `resilience4j-spring-boot4` module. The same change added a startup check: on Boot 4, `resilience4j-spring-boot3` stops the application with “Module 'io.github.resilience4j:resilience4j-spring-boot3' is only compatible with Spring Boot 3.x” ([Resilience4j PR #2384](https://github.com/resilience4j/resilience4j/pull/2384), [Maven Central](https://central.sonatype.com/artifact/io.github.resilience4j/resilience4j-spring-boot4/2.4.0)). Boot 4 also renamed `spring-boot-starter-aop` to `spring-boot-starter-aspectj`. Spring says you need it if your application uses AspectJ annotations from `org.aspectj.lang.annotation`, and Resilience4j's aspects are built on `@Aspect` and `@Around` from that package ([Spring Boot 4.0.0-M3 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0.0-M3-Release-Notes), [Spring Boot 4.0 migration guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide)). In this demo, AspectJ also arrives indirectly through `spring-boot-starter-data-jpa`, but declare the starter rather than rely on that.
+
+The protected client:
 
 ```java
 @Service
@@ -717,7 +735,8 @@ public class PaymentClient {
         return api.authorize(orderId, amount);
     }
 
-    // Runs only when the breaker rejects the call (state OPEN).
+    // Runs only when the breaker doesn't permit the call: OPEN, FORCED_OPEN,
+    // or HALF_OPEN with all trial calls in use.
     // Other exceptions still reach the caller and count as failures.
     private String queueForLater(String orderId, BigDecimal amount,
                                  CallNotPermittedException e) {
@@ -726,7 +745,7 @@ public class PaymentClient {
 }
 ```
 
-The fallback choice is deliberate. In the Resilience4j docs, the fallback works like a `catch` block: Resilience4j looks for the fallback method that best matches the exception, and “the fallback is executed independently of the current state of the circuit breaker”. The fallback must be in the same class, with the same signature plus one extra exception parameter ([Resilience4j: Spring Boot 3](https://resilience4j.readme.io/docs/getting-started-3)). A fallback declared with `Exception` would also hide ordinary failures while the breaker is still closed. Declaring it with `CallNotPermittedException` means only “breaker is open” is turned into “queue it for later”. This matches Fowler's point that clients need a plan for when the breaker trips, and queueing a credit-card authorization is his example ([Fowler: CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html)).
+The fallback choice is deliberate. In the Resilience4j docs, the fallback works like a `catch` block: Resilience4j looks for the fallback method that best matches the exception, and “the fallback is executed independently of the current state of the circuit breaker”. The fallback must be in the same class, with the same signature plus one extra exception parameter ([Resilience4j: Spring Boot 3](https://resilience4j.readme.io/docs/getting-started-3)). A fallback declared with `Exception` would also hide ordinary failures while the breaker is still closed. Declaring it with `CallNotPermittedException` means only “the breaker refused the call” is turned into “queue it for later”. That covers more than OPEN. In HALF_OPEN, calls beyond the permitted trial calls are rejected with a `CallNotPermittedException` until those trial calls complete, and FORCED_OPEN always denies access ([Resilience4j: CircuitBreaker](https://resilience4j.readme.io/docs/circuitbreaker)). Two more tests show the fallback running in FORCED_OPEN, and in HALF_OPEN while both trial permits are held. This matches Fowler's point that clients need a plan for when the breaker trips, and queueing a credit-card authorization is his example ([Fowler: CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html)).
 
 The `@SpringBootTest` walks through the whole state machine, using a fake gateway whose health the test can switch:
 
@@ -774,8 +793,8 @@ The video ends by saying these patterns work together, and in a checkout flow th
 3. Pricing picks a discount **Strategy** for the customer.
 4. A payment **Factory** chooses the provider. Each provider sits behind an **Adapter**, so the rest of the code sees one `PaymentGateway` interface.
 5. The gateway call goes through a **Circuit Breaker**, so a payment outage queues authorizations instead of taking checkout down.
-6. Once the order is committed, an `OrderPlaced` event notifies the inventory, email and loyalty **Observers**.
-7. The same events feed a **CQRS** read model for the “my orders” page, which is served from a cached product catalog built with a **Decorator**.
+6. Once the order is committed, an `OrderPlaced` event notifies the inventory, email and loyalty **Observers**. For that, the listeners need `@TransactionalEventListener`. The plain `@EventListener`s in section 5 run inside the publisher's transaction, before the commit.
+7. The same events feed a **CQRS** read model for the “my orders” page. Product details on that page come from a catalog wrapped in a caching **Decorator**.
 
 Not every system needs all ten, and the costs are not equal. Repository, Factory, Strategy, Builder, Adapter and Decorator are code-level choices. If one turns out to be unnecessary, you can refactor it away in an afternoon.
 
@@ -789,6 +808,8 @@ Not every system needs all ten, and the costs are not equal. Repository, Factory
 - Michael T. Nygard, *Release It!*, cited through Fowler's CircuitBreaker article.
 - Spring Framework reference: [Bean scopes](https://docs.spring.io/spring-framework/reference/core/beans/factory-scopes.html), [Standard and custom events](https://docs.spring.io/spring-framework/reference/core/beans/context-introduction.html#context-functionality-events), [Transaction-bound events](https://docs.spring.io/spring-framework/reference/data-access/transaction/event.html), [Proxying mechanisms](https://docs.spring.io/spring-framework/reference/core/aop/proxying.html).
 - Spring Data JPA reference: [Core concepts](https://docs.spring.io/spring-data/jpa/reference/repositories/core-concepts.html), [Defining query methods](https://docs.spring.io/spring-data/jpa/reference/repositories/query-methods-details.html).
-- Resilience4j documentation: [CircuitBreaker](https://resilience4j.readme.io/docs/circuitbreaker), [Getting started with Spring Boot 3](https://resilience4j.readme.io/docs/getting-started-3).
+- Resilience4j documentation: [CircuitBreaker](https://resilience4j.readme.io/docs/circuitbreaker), [Getting started with Spring Boot 3](https://resilience4j.readme.io/docs/getting-started-3). Spring Boot 4 module: [PR #2384](https://github.com/resilience4j/resilience4j/pull/2384), [resilience4j-spring-boot4 on Maven Central](https://central.sonatype.com/artifact/io.github.resilience4j/resilience4j-spring-boot4/2.4.0).
+- Spring Boot support and Boot 4 changes: [Spring Boot 3.5.16 announcement](https://spring.io/blog/2026/06/25/spring-boot-3-5-16-available-now), [endoflife.date: Spring Boot](https://endoflife.date/spring-boot), [4.0.0-M3 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0.0-M3-Release-Notes), [4.0 migration guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide).
+- Java 21 API: [ConcurrentHashMap.computeIfAbsent](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ConcurrentHashMap.html#computeIfAbsent(K,java.util.function.Function)).
 
 Which of these ten has saved you in production, and which one have you seen add more complexity than it removed?
