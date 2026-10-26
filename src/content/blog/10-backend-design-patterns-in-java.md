@@ -686,7 +686,7 @@ stateDiagram-v2
   accDescr: CLOSED moves to OPEN when the failure rate reaches the threshold. OPEN rejects calls, then moves to HALF_OPEN after the wait duration. HALF_OPEN returns to CLOSED if the trial calls succeed, or to OPEN if they fail.
   direction TB
   [*] --> CLOSED
-  CLOSED --> OPEN: failure rate hits limit
+  CLOSED --> OPEN: fail rate at limit
   OPEN --> HALF_OPEN: wait time over
   HALF_OPEN --> CLOSED: trials OK
   HALF_OPEN --> OPEN: trials fail
@@ -810,6 +810,6 @@ Not every system needs all ten, and the costs are not equal. Repository, Factory
 - Spring Data JPA reference: [Core concepts](https://docs.spring.io/spring-data/jpa/reference/repositories/core-concepts.html), [Defining query methods](https://docs.spring.io/spring-data/jpa/reference/repositories/query-methods-details.html).
 - Resilience4j documentation: [CircuitBreaker](https://resilience4j.readme.io/docs/circuitbreaker), [Getting started with Spring Boot 3](https://resilience4j.readme.io/docs/getting-started-3). Spring Boot 4 module: [PR #2384](https://github.com/resilience4j/resilience4j/pull/2384), [resilience4j-spring-boot4 on Maven Central](https://central.sonatype.com/artifact/io.github.resilience4j/resilience4j-spring-boot4/2.4.0).
 - Spring Boot support and Boot 4 changes: [Spring Boot 3.5.16 announcement](https://spring.io/blog/2026/06/25/spring-boot-3-5-16-available-now), [endoflife.date: Spring Boot](https://endoflife.date/spring-boot), [4.0.0-M3 release notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0.0-M3-Release-Notes), [4.0 migration guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide).
-- Java 21 API: [ConcurrentHashMap.computeIfAbsent](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ConcurrentHashMap.html#computeIfAbsent(K,java.util.function.Function)).
+- Java 21 API: [Javadoc for computeIfAbsent](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ConcurrentHashMap.html#computeIfAbsent(K,java.util.function.Function)).
 
 Which of these ten has saved you in production, and which one have you seen add more complexity than it removed?
