@@ -32,10 +32,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type-check (astro check)
-        run: npm run check
-
-      # Mermaid diagrams are rendered to SVG at build time with Playwright's Chromium.
+      # Mermaid diagrams are rendered to SVG with Playwright's Chromium. astro check also
+      # renders content, so Chromium must be installed before it runs.
       - name: Cache Playwright browsers
         uses: actions/cache@v6
         with:
@@ -44,6 +42,13 @@ jobs:
 
       - name: Install Chromium for Mermaid rendering
         run: npx playwright install --with-deps chromium
+
+      - name: Type-check (astro check)
+        run: npm run check
+
+      # Don't let a content render cached by an earlier step leak into the build.
+      - name: Clear Astro content cache
+        run: rm -rf .astro node_modules/.astro
 
       - name: Build site (Astro + Pagefind index)
         run: npm run build
