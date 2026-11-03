@@ -1,0 +1,29 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import { TOOLS } from '../../lib/tools/catalog';
+import { withBase } from '../../lib/utils';
+
+const description =
+  'Browser tools for time zones, images, JSON, text, age, QR codes, and a few developer utilities. Each one runs locally and nothing is uploaded.';
+const lede = 'Small utilities for a quick conversion, a local image, or a token you would rather not paste into someone else’s server.';
+---
+
+<ToolLayout title="Tools" description={description} lede={lede} hub>
+  <div slot="copy">
+    <p>
+      Photos, JSON, passwords, and tokens stay on this device. The HEIC decoder is an extra script from this site, and it loads only when you open a HEIC file.
+    </p>
+    <ol class="tool-index">
+      {
+        TOOLS.map((tool) => (
+          <li>
+            <h2>
+              <a href={withBase(tool.href)}>{tool.h1}</a>
+            </h2>
+            <p>{tool.summary}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</ToolLayout>

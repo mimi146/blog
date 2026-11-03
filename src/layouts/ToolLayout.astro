@@ -1,0 +1,135 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import { SITE } from '../consts';
+import { absoluteUrl, withBase } from '../lib/utils';
+import { TOOLS, type ToolInfo } from '../lib/tools/catalog';
+import '../styles/tools.css';
+
+interface Props {
+  title: string;
+  description: string;
+  lede: string;
+  related?: ToolInfo[];
+  hub?: boolean;
+  applicationCategory?: ToolInfo['applicationCategory'];
+}
+
+const { title, description, lede, related = [], hub = false, applicationCategory = 'UtilitiesApplication' } = Astro.props;
+const pageUrl = absoluteUrl(Astro.url.pathname, Astro.site);
+const home = absoluteUrl('/', Astro.site);
+const toolsUrl = absoluteUrl('/tools/', Astro.site);
+const crumbs = hub
+  ? [
+      { name: 'Home', href: withBase('/'), item: home },
+      { name: 'Tools', href: '', item: pageUrl },
+    ]
+  : [
+      { name: 'Home', href: withBase('/'), item: home },
+      { name: 'Tools', href: withBase('/tools/'), item: toolsUrl },
+      { name: title, href: '', item: pageUrl },
+    ];
+
+const jsonLd: Record<string, unknown>[] = [
+  {
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((crumb, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: crumb.name,
+      item: crumb.item,
+    })),
+  },
+];
+
+if (hub) {
+  jsonLd.push(
+    {
+      '@type': 'CollectionPage',
+      name: title,
+      description,
+      url: pageUrl,
+      isPartOf: { '@id': `${home}#website` },
+    },
+    {
+      '@type': 'ItemList',
+      itemListElement: TOOLS.map((tool, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: tool.h1,
+        url: absoluteUrl(tool.href, Astro.site),
+      })),
+    },
+  );
+} else {
+  jsonLd.push({
+    '@type': 'WebApplication',
+    name: title,
+    description,
+    url: pageUrl,
+    applicationCategory,
+    operatingSystem: 'Any',
+    browserRequirements: 'Requires JavaScript. Runs in the browser.',
+    isAccessibleForFree: true,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    author: { '@id': `${home}#person` },
+  });
+}
+---
+
+<BaseLayout title={title} description={description} image={SITE.ogImage} imageAlt={SITE.ogImageAlt} jsonLd={jsonLd}>
+  <nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol>
+      {
+        crumbs.map((crumb, index) => (
+          <li>
+            {index === crumbs.length - 1 ? (
+              <span aria-current="page">{crumb.name}</span>
+            ) : (
+              <a href={crumb.href}>{crumb.name}</a>
+            )}
+          </li>
+        ))
+      }
+    </ol>
+  </nav>
+  <h1>{title}</h1>
+  <p class="lede">{lede}</p>
+  <p class="tool-privacy">Runs locally in your browser. Nothing is uploaded.</p>
+  {
+    Astro.slots.has('tool') && (
+      <div class="tool-island">
+        <slot name="tool" />
+        <noscript>
+          <p class="tool-hint">This tool needs JavaScript. Once JavaScript is available it still runs only on your device.</p>
+        </noscript>
+        <script is:inline>
+          document.addEventListener(
+            'submit',
+            function (event) {
+              const form = event.target;
+              if (form && form.closest && form.closest('.tool-island')) event.preventDefault();
+            },
+            true,
+          );
+        </script>
+      </div>
+    )
+  }
+  <div class="prose tool-copy" data-pagefind-body>
+    <slot name="copy" />
+  </div>
+  {
+    related.length > 0 && (
+      <aside class="related-tools" aria-labelledby="related-tools-heading">
+        <h2 id="related-tools-heading">Related tools</h2>
+        <ul>
+          {related.map((tool) => (
+            <li>
+              <a href={withBase(tool.href)}>{tool.h1}</a>. {tool.summary}
+            </li>
+          ))}
+        </ul>
+      </aside>
+    )
+  }
+</BaseLayout>

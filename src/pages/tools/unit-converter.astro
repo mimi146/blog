@@ -1,0 +1,14 @@
+---
+import ToolLayout from '../../layouts/ToolLayout.astro';
+import UnitConverter from '../../components/tools/UnitConverter';
+import { ARTICLES } from '../../lib/tools/articles';
+import { getTool, relatedTools } from '../../lib/tools/catalog';
+import { articleHtml } from '../../lib/tools/html';
+
+const tool = getTool('unit-converter');
+---
+
+<ToolLayout title={tool.h1} description={tool.description} lede={tool.lede} related={relatedTools(tool.slug)} applicationCategory={tool.applicationCategory}>
+  <UnitConverter client:visible slot="tool" />
+  <div slot="copy" set:html={articleHtml(ARTICLES[tool.slug])} />
+</ToolLayout>
