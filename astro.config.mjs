@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
+import preact from '@astrojs/preact';
 import sitemap from '@astrojs/sitemap';
 import { unified } from '@astrojs/markdown-remark';
 
@@ -22,6 +23,7 @@ export default defineConfig({
   // Inline the (small) stylesheet into each page: one less render-blocking request.
   build: { format: 'directory', inlineStylesheets: 'always' },
   integrations: [
+    preact(),
     mdx(),
     sitemap({
       // Utility pages that shouldn't be indexed.
