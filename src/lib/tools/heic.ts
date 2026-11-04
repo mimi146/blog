@@ -1,4 +1,5 @@
 import { assertWithinPixelBudget } from './image';
+import { createSerialQueue, loadOnce } from './heic-session';
 
 interface HeifImage {
   get_width(): number;
@@ -10,34 +11,59 @@ interface HeifImage {
 
 interface HeifDecoder {
   decode(data: Uint8Array): HeifImage[];
+  /** Native context pointer. Null after the context is released. */
+  decoder?: number | null;
 }
 
 interface LibHeif {
   HeifDecoder: new () => HeifDecoder;
+  heif_context_free?: (context: number) => void;
 }
 
-/**
- * One decoder for the page. libheif-js frees the previous native context at the
- * start of the next decode, so a batch does not keep a context per file.
- */
-let session: Promise<HeifDecoder> | null = null;
+interface HeifSession {
+  lib: LibHeif;
+  decoder: HeifDecoder;
+}
 
-function loadDecoder(): Promise<HeifDecoder> {
-  session ??= import('libheif-js/libheif-wasm/libheif-bundle.mjs').then(async (imported) => {
+const enqueue = createSerialQueue();
+const cache: { current: Promise<HeifSession> | null } = { current: null };
+
+function loadSession(): Promise<HeifSession> {
+  return loadOnce(cache, async () => {
+    const imported = await import('libheif-js/libheif-wasm/libheif-bundle.mjs');
     const factory = imported.default as () => LibHeif | Promise<LibHeif>;
-    const libheif = await factory();
-    return new libheif.HeifDecoder();
+    const lib = await factory();
+    return { lib, decoder: new lib.HeifDecoder() };
   });
-  return session;
 }
 
 /**
  * Decode a HEIC/HEIF file with the libheif WASM bundle.
- * The bundle is a separate chunk, imported only when a HEIC file is opened.
- * Image bytes stay in the browser. They are not sent to a server.
+ * Decodes run one at a time: libheif frees the previous context at the start of
+ * the next decode, so two overlapping decodes would free a context still in use.
+ * The bundle is imported only when a HEIC file is opened. Image bytes stay in the browser.
  */
-export async function decodeHeic(bytes: Uint8Array): Promise<ImageData> {
-  const decoder = await loadDecoder();
+export function decodeHeic(bytes: Uint8Array): Promise<ImageData> {
+  return enqueue(() => decodeNow(bytes));
+}
+
+/** Release the native context after a batch. The next HEIC file loads a fresh decoder. */
+export function releaseHeicDecoder(): Promise<void> {
+  return enqueue(async () => {
+    const pending = cache.current;
+    cache.current = null;
+    if (!pending) return;
+    try {
+      const { lib, decoder } = await pending;
+      freeContext(lib, decoder);
+    } catch {
+      // The load failed and loadOnce already cleared the cache.
+    }
+  });
+}
+
+async function decodeNow(bytes: Uint8Array): Promise<ImageData> {
+  const { decoder } = await loadSession();
   const images = decoder.decode(bytes);
   try {
     const image = images[0];
@@ -69,5 +95,16 @@ function releaseImage(image: HeifImage): void {
     image.free?.();
   } catch {
     // The handle may already have been released.
+  }
+}
+
+function freeContext(lib: LibHeif, decoder: HeifDecoder): void {
+  const context = decoder.decoder;
+  if (context == null || typeof lib.heif_context_free !== 'function') return;
+  try {
+    lib.heif_context_free(context);
+    decoder.decoder = null;
+  } catch {
+    // The next page load drops the module. A failed free must not trap the button.
   }
 }

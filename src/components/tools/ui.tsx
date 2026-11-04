@@ -31,12 +31,23 @@ export function Alert({ message }: { message: string }) {
   );
 }
 
-export function ToolForm({ labelledBy, children, onSubmit }: { labelledBy?: string; children: ComponentChildren; onSubmit?: () => void }) {
+export function ToolForm({
+  labelledBy,
+  children,
+  onSubmit,
+  busy = false,
+}: {
+  labelledBy?: string;
+  children: ComponentChildren;
+  onSubmit?: () => void;
+  busy?: boolean;
+}) {
   return (
     <form
       className="tool-panel"
       autoComplete="off"
       aria-labelledby={labelledBy}
+      aria-busy={busy}
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit?.();

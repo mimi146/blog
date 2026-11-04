@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { assertWithinPixelBudget, extensionForFormat, fitWithin, isHeic, mimeForFormat, type ImageFormat } from '../../lib/tools/image';
 import { formatBytes } from '../../lib/tools/format';
-import { decodeHeic } from '../../lib/tools/heic';
+import { decodeHeic, releaseHeicDecoder } from '../../lib/tools/heic';
+import { releaseLock, tryAcquire } from '../../lib/tools/heic-session';
 import { Field, ToolForm, valueOf } from './ui';
 
 interface Compressed {
@@ -24,7 +25,9 @@ export default function ImageCompressor() {
   const [status, setStatus] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [results, setResults] = useState<Compressed[]>([]);
+  const [busy, setBusy] = useState(false);
   const urls = useRef<string[]>([]);
+  const lock = useRef({ held: false });
 
   useEffect(() => {
     return () => {
@@ -55,7 +58,23 @@ export default function ImageCompressor() {
   }
 
   async function compress() {
+    if (!tryAcquire(lock.current)) return;
+    setBusy(true);
     setErrors([]);
+    try {
+      await compressFiles();
+    } finally {
+      try {
+        await releaseHeicDecoder();
+      } catch {
+        // Releasing the decoder must not leave the button stuck.
+      }
+      releaseLock(lock.current);
+      setBusy(false);
+    }
+  }
+
+  async function compressFiles() {
     if (files.length === 0) {
       setErrors(['Choose an image first.']);
       return;
@@ -105,7 +124,7 @@ export default function ImageCompressor() {
   }
 
   return (
-    <ToolForm onSubmit={() => void compress()}>
+    <ToolForm busy={busy} onSubmit={() => void compress()}>
       <Field
         id="img-files"
         label="Images"
@@ -158,8 +177,8 @@ export default function ImageCompressor() {
         />
       </Field>
       <div className="tool-actions">
-        <button className="tool-btn" type="submit">
-          Compress
+        <button className="tool-btn" type="submit" disabled={busy}>
+          {busy ? 'Compressing…' : 'Compress'}
         </button>
       </div>
       <p className="tool-status" role="status" aria-live="polite">
