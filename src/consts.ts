@@ -14,3 +14,6 @@ export const SITE = {
     github: 'https://github.com/mimi146',
   },
 } as const;
+
+// Cloudflare Web Analytics beacon token (public). Set to '' to disable the beacon.
+export const cloudflareAnalyticsToken = 'c98ce02541c14e36a0b1f901837f2df6';
