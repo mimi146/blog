@@ -83,7 +83,7 @@ export default function UnitConverter() {
             </select>
           </Field>
         </div>
-        <p className="tool-result" role="status">
+        <p className="tool-result" role="status" aria-live="polite">
           {converted.ok ? (
             <>
               <strong>{formatNumber(converted.value)}</strong> {to.label}
@@ -121,7 +121,7 @@ export default function UnitConverter() {
             </select>
           </Field>
         </div>
-        <p className="tool-result" role="status">
+        <p className="tool-result" role="status" aria-live="polite">
           {transfer?.ok ? (
             <>
               About <strong>{formatDuration(transfer.value)}</strong> at that rate, ignoring protocol overhead.

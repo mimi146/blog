@@ -15,9 +15,17 @@ declare module 'libheif-js/libheif-wasm/libheif-bundle.mjs' {
     get_width(): number;
     get_height(): number;
     display(imageData: ImageData, callback: (data: ImageData | null) => void): void;
+    /** Releases the native image handle. Safe to call more than once. */
+    free?: () => void;
+  }
+  interface HeifDecoder {
+    decode(data: Uint8Array): HeifImage[];
+    /** Native context pointer. Null after the context is released. */
+    decoder?: number | null;
   }
   interface LibHeif {
-    HeifDecoder: new () => { decode(data: Uint8Array): HeifImage[] };
+    HeifDecoder: new () => HeifDecoder;
+    heif_context_free?: (context: number) => void;
   }
   export default function libheifFactory(): LibHeif | Promise<LibHeif>;
 }

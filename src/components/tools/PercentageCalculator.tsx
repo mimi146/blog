@@ -129,7 +129,7 @@ export default function PercentageCalculator() {
           {parsedList && !parsedList.ok ? <Alert message={parsedList.error} /> : null}
           {percentileResult ? (
             percentileResult.ok ? (
-              <div className="tool-result" role="status">
+              <div className="tool-result" role="status" aria-live="polite">
                 <p>
                   <strong>{formatNumber(percentileResult.value.value)}</strong>
                 </p>

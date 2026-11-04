@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { extensionForFormat, fitWithin, isHeic, mimeForFormat, type ImageFormat } from '../../lib/tools/image';
+import { assertWithinPixelBudget, extensionForFormat, fitWithin, isHeic, mimeForFormat, type ImageFormat } from '../../lib/tools/image';
 import { formatBytes } from '../../lib/tools/format';
 import { decodeHeic } from '../../lib/tools/heic';
-import { Alert, Field, ToolForm, valueOf } from './ui';
+import { Field, ToolForm, valueOf } from './ui';
 
 interface Compressed {
   name: string;
@@ -22,7 +22,7 @@ export default function ImageCompressor() {
   const [quality, setQuality] = useState(0.8);
   const [maxEdge, setMaxEdge] = useState('1920');
   const [status, setStatus] = useState('');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<string[]>([]);
   const [results, setResults] = useState<Compressed[]>([]);
   const urls = useRef<string[]>([]);
 
@@ -45,19 +45,26 @@ export default function ImageCompressor() {
       return { source: scratch, width: imageData.width, height: imageData.height };
     }
     const bitmap = await createImageBitmap(file);
+    try {
+      assertWithinPixelBudget(bitmap.width, bitmap.height);
+    } catch (error) {
+      bitmap.close();
+      throw error;
+    }
     return { source: bitmap, width: bitmap.width, height: bitmap.height };
   }
 
   async function compress() {
-    setError('');
+    setErrors([]);
     if (files.length === 0) {
-      setError('Choose an image first.');
+      setErrors(['Choose an image first.']);
       return;
     }
     for (const url of urls.current) URL.revokeObjectURL(url);
     urls.current = [];
     setResults([]);
     const next: Compressed[] = [];
+    const failures: string[] = [];
     const edge = maxEdge === 'original' ? null : Number(maxEdge);
     for (const file of files) {
       try {
@@ -90,15 +97,20 @@ export default function ImageCompressor() {
         });
         setResults([...next]);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : `Could not compress ${file.name}.`);
+        failures.push(caught instanceof Error ? caught.message : `Could not compress ${file.name}.`);
       }
     }
+    setErrors(failures);
     setStatus(next.length ? 'Done. The new files are ready to download.' : '');
   }
 
   return (
     <ToolForm onSubmit={() => void compress()}>
-      <Field id="img-files" label="Images" hint="JPEG, PNG, WebP, or HEIC. Each file stays on this device. Limit 25 MB.">
+      <Field
+        id="img-files"
+        label="Images"
+        hint="JPEG, PNG, WebP, or HEIC. Each file stays on this device. Limit 25 MB and 50 million pixels."
+      >
         <input
           id="img-files"
           type="file"
@@ -153,7 +165,15 @@ export default function ImageCompressor() {
       <p className="tool-status" role="status" aria-live="polite">
         {status}
       </p>
-      <Alert message={error} />
+      {errors.length > 0 ? (
+        <div role="alert">
+          {errors.map((message, index) => (
+            <p className="tool-error" key={`${index}-${message}`}>
+              {message}
+            </p>
+          ))}
+        </div>
+      ) : null}
       {results.map((item) => {
         const saved = item.before - item.after;
         const ratio = item.before === 0 ? 0 : Math.abs(saved) / item.before;
