@@ -58,7 +58,7 @@ CREATE TABLE Albums {
 
 In F1, a directory is typically one ads customer, and more than 100 million directories had a single fragment, so their reads and writes “are guaranteed to occur on only a single server” (§5.4).
 
-**My take:** interleaving is just choosing your partition key well, written into the schema. Spanner’s expensive machinery only runs when a transaction crosses directories, so a good schema is how you avoid paying for it.
+**My take:** interleaving is just choosing your partition key well, written into the schema. Spanner’s expensive machinery only runs when a transaction spans more than one Paxos group, so a good schema is how you avoid paying for it.
 
 ## TrueTime: a clock that tells you how wrong it might be
 
@@ -80,7 +80,7 @@ Read-write transactions use two-phase locking. Writes are buffered at the client
 %%{init: {"flowchart": {"nodeSpacing": 12, "padding": 6, "diagramPadding": 4}}}%%
 flowchart TB
     accTitle: A read-write transaction across Paxos groups
-    accDescr: The client sends its buffered writes to the participant leaders. Each participant takes write locks and logs a prepare record through Paxos, then sends its prepare timestamp to the coordinator leader. The coordinator picks a commit timestamp s at least as large as every prepare timestamp and larger than TT.now().latest, and logs the commit through Paxos. It then waits until TT.after(s) is true. Finally every group applies the writes at s and releases its locks.
+    accDescr: The client sends its buffered writes to the participant leaders. Each participant other than the coordinator takes write locks and logs a prepare record through Paxos, then sends its prepare timestamp to the coordinator leader. The coordinator picks a commit timestamp s at least as large as every prepare timestamp and larger than TT.now().latest, and logs the commit through Paxos. It then waits until TT.after(s) is true. Finally every group applies the writes at s and releases its locks.
     C(["client"]) -->|"buffered writes"| P["participant leaders"]
     P -->|"Paxos: prepare"| PT["prepare timestamps"]
     PT --> CO["coordinator leader"]
@@ -118,7 +118,7 @@ Every replica tracks a **safe time**, “the maximum timestamp at which a replic
 
 That makes three lock-free read types possible (§4.1):
 
-- **Read-only transactions** pick a timestamp, then read at any up-to-date replica. If one group is involved, the leader uses the last committed write’s timestamp. Across groups, Spanner simply uses `TT.now().latest` and may wait for safe time to catch up (§4.2.2).
+- **Read-only transactions** pick a timestamp, then read at any up-to-date replica. If one group is involved and it has no prepared transactions, the leader uses the last committed write’s timestamp. Across groups, Spanner simply uses `TT.now().latest` and may wait for safe time to catch up (§4.2.2).
 - **Snapshot reads** at a timestamp the client chooses.
 - **Bounded-staleness reads**, where Spanner picks the timestamp within a bound the client gives.
 
@@ -139,7 +139,7 @@ The microbenchmarks used one spanserver per zone, datacenters within 1 ms of eac
 
 From the one-replica runs, commit wait is “about 5ms” and Paxos “about 9ms.” Snapshot-read throughput grows almost linearly with replicas, because any up-to-date replica can answer. Two-phase commit stayed reasonable up to 50 participants (mean 42.7 ms), and latencies “start to rise noticeably at 100 participants” (Table 4).
 
-The availability test killed a whole zone that held every leader. With warning, leaders handed off and throughput dropped “around 3-4%.” Without warning, throughput dropped “almost to 0” until the 10-second leases expired. “Approximately 10 seconds after the kill time, all of the groups have leaders” (§5.2). The lease length is your worst-case unplanned failover time.
+The availability test killed a whole zone that held every leader. With warning, leaders handed off and throughput dropped “around 3-4%.” Without warning, throughput dropped “almost to 0” until the 10-second leases expired. “Approximately 10 seconds after the kill time, all of the groups have leaders” (§5.2). In that run, recovery took about as long as the 10-second lease, so lease length shaped how long the outage lasted.
 
 In F1 over 24 hours, reads averaged 8.7 ms, single-site commits 72.3 ms and multi-site commits 103.0 ms (Table 6).
 
