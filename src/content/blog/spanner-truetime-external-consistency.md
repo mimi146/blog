@@ -84,8 +84,8 @@ flowchart TB
     C(["client"]) -->|"buffered writes"| P["participant leaders"]
     P -->|"Paxos: prepare"| PT["prepare timestamps"]
     PT --> CO["coordinator leader"]
-    CO -->|"Paxos: commit"| S["pick commit time s"]
-    S --> W["commit wait"]
+    CO --> S["pick commit time s"]
+    S -->|"Paxos: commit"| W["commit wait"]
     W -->|"send s"| A["apply at s, unlock"]
 ```
 
