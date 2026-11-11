@@ -29,7 +29,7 @@
     "hast-util-to-text": "^4.0.2",
     "libheif-js": "^1.23.5",
     "mermaid-isomorphic": "^3.1.0",
-    "playwright": "^1.63.0",
+    "playwright": "^1.65.0",
     "preact": "^11.1.1",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.5",
