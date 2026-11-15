@@ -6,7 +6,7 @@ tags: [distributed systems, databases, aurora, storage, papers]
 draft: false
 ---
 
-Raft and Spanner order writes by having replicas vote on every log entry. Amazon Aurora, the relational database AWS launched in 2015, takes a different route. It keeps one writer, moves the bottom of the storage engine onto a fleet of storage nodes, and avoids consensus on the hot path almost entirely. The design is described in two papers by Alexandre Verbitski and colleagues at AWS: [Amazon Aurora: Design Considerations for High Throughput Cloud-Native Relational Databases](https://www.amazon.science/publications/amazon-aurora-design-considerations-for-high-throughput-cloud-native-relational-databases) (SIGMOD ’17, [PDF](https://web.stanford.edu/class/cs245/readings/aurora.pdf)), cited as **[A17]**, and [Amazon Aurora: On Avoiding Distributed Consensus for I/Os, Commits, and Membership Changes](https://www.amazon.science/publications/amazon-aurora-on-avoiding-distributed-consensus-for-i-os-commits-and-membership-changes) (SIGMOD ’18, [PDF](https://pages.cs.wisc.edu/~yxy/cs764-f20/papers/aurora-sigmod-18.pdf)), cited as **[A18]**. Section numbers refer to those papers. They describe Aurora as it was in 2016–2018, so treat this as a design study, not a product manual. Paragraphs marked **My take** are my own analysis.
+Raft commits each log entry once a majority of replicas has stored it, and Spanner runs a Paxos group per tablet, adding two-phase commit when a transaction spans groups. Amazon Aurora, the relational database AWS launched in 2015, takes a different route. It keeps one writer, moves the bottom of the storage engine onto a fleet of storage nodes, and avoids consensus on the hot path almost entirely. The design is described in two papers by Alexandre Verbitski and colleagues at AWS: [Amazon Aurora: Design Considerations for High Throughput Cloud-Native Relational Databases](https://www.amazon.science/publications/amazon-aurora-design-considerations-for-high-throughput-cloud-native-relational-databases) (SIGMOD ’17, [PDF](https://web.stanford.edu/class/cs245/readings/aurora.pdf)), cited as **[A17]**, and [Amazon Aurora: On Avoiding Distributed Consensus for I/Os, Commits, and Membership Changes](https://www.amazon.science/publications/amazon-aurora-on-avoiding-distributed-consensus-for-i-os-commits-and-membership-changes) (SIGMOD ’18, [PDF](https://pages.cs.wisc.edu/~yxy/cs764-f20/papers/aurora-sigmod-18.pdf)), cited as **[A18]**. Section numbers refer to those papers. They describe Aurora as it was in 2016–2018, so treat this as a design study, not a product manual. Paragraphs marked **My take** are my own analysis.
 
 ## The problem: the network is the new bottleneck
 
@@ -34,7 +34,7 @@ AZ+1 is only safe if a second independent failure is unlikely during the time it
 - “A 10GB segment can be repaired in 10 seconds on a 10Gbps network link.” Losing quorum takes two failures in the same 10 seconds plus an AZ failure that hits neither.
 - The same repair path handles operations. To cool a hot node, mark one of its segments as bad and let the quorum migrate it. Software upgrades roll out “one AZ at a time,” never patching two members of a PG at once (§2.3).
 
-**My take:** Lesson 05’s Dynamo also preferred small, equal-size partitions. Aurora turns the idea into an explicit MTTR budget: name the repair time, then name what has to fail inside that window.
+**My take:** [Dynamo](/posts/dynamo-amazons-highly-available-key-value-store/) also settled on fixed, equal-size partitions. Aurora turns the idea into an explicit MTTR budget: name the repair time, then name what has to fail inside that window.
 
 ## The log is the database
 
@@ -91,9 +91,9 @@ Each log record points back to the previous record in its segment, so a segment 
 %%{init: {"flowchart": {"nodeSpacing": 12, "padding": 6, "diagramPadding": 4}}}%%
 flowchart TB
     accTitle: How Aurora's watermarks build on each other
-    accDescr: Each segment tracks its Segment Complete LSN. When four of the six segments in a protection group have advanced, the writer advances that group's PGCL. The lowest point that all groups have reached is the volume's VCL. The highest mini-transaction boundary at or below VCL is the VDL, which gates commit acknowledgements, read points and what replicas may apply.
+    accDescr: Each segment tracks its Segment Complete LSN. When four of the six segments in a protection group have advanced, the writer advances that group's PGCL. The highest LSN below which every record, in every group, has met quorum is the volume's VCL. The highest mini-transaction boundary at or below VCL is the VDL, which gates commit acknowledgements, read points and what replicas may apply.
     S["SCL per segment"] -->|"4 of 6"| P["PGCL per group"]
-    P -->|"all groups"| V["VCL for volume"]
+    P -->|"complete prefix"| V["VCL for volume"]
     V -->|"last MTR end"| D["VDL"]
     D --> C["commits"]
     D --> R["read points"]
@@ -119,7 +119,7 @@ flowchart TB
 The watermarks live only in the writer’s memory. [A18] calls this “a trade worth making since commits are many orders of magnitude more common than crashes” (§2.4). On restart, the writer:
 
 1. Reads from a **read quorum** of each PG, which “is sufficient to guarantee discovery of any data that could have reached a write quorum,” and recomputes the watermarks ([A17] §4.3).
-2. Writes a **truncation range** that cancels everything above the new VDL. The 10-million LSN limit tells it how high that range must go. The range is versioned with an epoch, so an interrupted recovery can safely restart.
+2. Writes a **truncation range** that cancels everything above the new VDL ([A17] §4.3). The 10-million LSN limit tells it how high that range must go. The range is versioned with an epoch, so an interrupted recovery can safely restart. ([A18] §2.4 cuts at the newly computed VCL instead, the same split as the commit rule. I follow [A17].)
 3. Bumps the **volume epoch** in a write quorum of every PG. Storage rejects requests with an old epoch, which fences out a zombie writer. “Aurora, rather than waiting for a lease to expire, just changes the locks on the door” ([A18] §2.4).
 4. Opens the database. Undo for in-flight transactions runs in the background. Recovery is “generally under 10 seconds,” even after crashing while handling more than 100,000 write statements per second ([A17] §4.3).
 
@@ -149,7 +149,7 @@ The same idea cuts cost. Each PG has three **full** segments (redo plus pages) a
 
 - **Schema-per-tenant SaaS.** Some customers had “more than 50,000 customers of their own,” and “over 150,000 tables” on small instances was common. That put pressure on metadata structures like the dictionary cache.
 - **Spikes.** One customer appeared on a nationally televised show without stressing the database. Several ran “over 8000 connections per second.”
-- **Constant schema changes.** DBAs reported “a few dozen migrations a week.” Aurora added online DDL that versions schemas per page and upgrades pages lazily when they’re next written.
+- **Constant schema changes.** DBAs reported “a few dozen migrations a week.” Aurora added online DDL that versions schemas per page, decodes each page on demand using its schema history, and lazily upgrades a page to the latest schema when it is next modified.
 - **No tolerance for patch downtime**, even “30 seconds every 6 weeks or so.” Zero-Downtime Patching waits for a moment with no active transactions, saves session state, swaps the engine, and restores the sessions.
 
 [A18] closes with the line that sums up the whole design: “Most distributed consensus algorithms abhor state and establish their baseline from first principles. But, databases are all about the management of state. Why not use it for our own benefit?”
