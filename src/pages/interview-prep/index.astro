@@ -1,0 +1,67 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SERIES, orderSeries } from '../../lib/series';
+import { formatDate, getPosts, postPath, readingTime, withBase } from '../../lib/utils';
+
+const posts = await getPosts();
+const sections = SERIES.map((def) => ({ def, posts: orderSeries(posts, def.id) })).filter((s) => s.posts.length > 0);
+
+// Standalone posts that also help for backend interviews (not part of a numbered series).
+const RELATED = ['10-backend-design-patterns-in-java', 'idempotency-keys-safe-retries', 'caching-spring-boot-redis-redistemplate'];
+const related = RELATED.map((id) => posts.find((p) => p.id === id)).filter((p) => p !== undefined);
+const total = sections.reduce((n, s) => n + s.posts.length, 0);
+---
+
+<BaseLayout
+  title="Interview Prep"
+  description="Study notes for backend and system design interviews: deep dives into how big tech builds at scale, plus practice questions with outlines of strong answers."
+>
+  <h1>Interview Prep</h1>
+  <p class="lede">
+    Study notes for backend and system design interviews, written as ordered series. Start at Part 1 of a series and read on, or jump to a topic.
+    {total} posts so far.
+  </p>
+
+  {
+    sections.map(({ def, posts: items }) => (
+      <section aria-labelledby={`series-${def.id}`}>
+        <h2 id={`series-${def.id}`} class="series-heading">{def.title}</h2>
+        <p class="series-desc">{def.description}</p>
+        <ol class="series-list">
+          {items.map((post) => (
+            <li>
+              <span class="series-part">Part {post.data.seriesPart}</span>
+              <div>
+                <a href={withBase(postPath(post))}>{post.data.title}</a>
+                <p>{post.data.description}</p>
+                <div class="meta">
+                  <time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
+                  <span>{readingTime(post.body)} min read</span>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+    ))
+  }
+
+  {
+    related.length > 0 && (
+      <section aria-labelledby="series-related">
+        <h2 id="series-related" class="series-heading">Related reading</h2>
+        <p class="series-desc">Standalone posts that come up often in backend interviews.</p>
+        <ul class="series-list series-list-plain">
+          {related.map((post) => (
+            <li>
+              <div>
+                <a href={withBase(postPath(post))}>{post.data.title}</a>
+                <p>{post.data.description}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+</BaseLayout>

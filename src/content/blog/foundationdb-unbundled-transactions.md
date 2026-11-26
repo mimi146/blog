@@ -4,6 +4,8 @@ description: 'How FoundationDB splits a database into narrow roles, commits with
 pubDate: 2026-11-22
 tags: [distributed systems, databases, foundationdb, transactions, papers]
 draft: false
+series: system-design-deep-dives
+seriesPart: 9
 ---
 
 [Raft](https://mimi146.github.io/blog/posts/raft-understandable-consensus/) masks failures with majorities. [Spanner](https://mimi146.github.io/blog/posts/spanner-truetime-external-consistency/) orders transactions with locks and TrueTime. [Aurora](https://mimi146.github.io/blog/posts/amazon-aurora-the-log-is-the-database/) keeps one writer and pushes redo into a quorum-replicated storage fleet. FoundationDB, the transactional key-value store behind Apple’s CloudKit, does something else on each count. It splits the database into a dozen narrow roles. It orders every commit with a single Sequencer and checks conflicts without locks. It keeps only f+1 copies of the log. Whenever anything in the write path fails, it tears the write path down and rebuilds it in a few seconds.

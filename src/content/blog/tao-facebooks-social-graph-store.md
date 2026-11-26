@@ -4,6 +4,8 @@ description: 'How Facebook''s TAO served a billion graph reads/sec: objects & as
 pubDate: 2026-10-18
 tags: [distributed systems, facebook, graph store, caching, consistency, papers]
 draft: false
+series: system-design-deep-dives
+seriesPart: 4
 ---
 
 Facebook pages assemble hundreds of items from the social graph and privacy-filter every one for the current viewer. That makes write-time aggregation infeasible, so Facebook **pulls** the graph on each view. In 2013, Nathan Bronson and colleagues described **TAO**, the store built for that workload: [TAO: Facebook’s Distributed Data Store for the Social Graph](https://www.usenix.org/system/files/conference/atc13/atc13-bronson.pdf), USENIX ATC ’13 ([presentation page](https://www.usenix.org/conference/atc13/technical-sessions/presentation/bronson)). I’ll cite it as **[Bronson 2013]**. Every Facebook-specific number and mechanism here comes from it and describes Facebook around 2013. Paragraphs marked **My take** are my own analysis.

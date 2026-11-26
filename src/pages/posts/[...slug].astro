@@ -2,16 +2,23 @@
 import { render } from 'astro:content';
 import PostLayout from '../../layouts/PostLayout.astro';
 import { getPosts } from '../../lib/utils';
+import { orderSeries } from '../../lib/series';
 
 export async function getStaticPaths() {
   const posts = await getPosts(); // newest first
   return posts.map((post, i) => ({
     params: { slug: post.id },
-    props: { post, next: posts[i - 1], prev: posts[i + 1] },
+    props: {
+      post,
+      next: posts[i - 1],
+      prev: posts[i + 1],
+      // The post's whole series in order (empty for standalone posts).
+      series: post.data.series ? orderSeries(posts, post.data.series) : [],
+    },
   }));
 }
 
-const { post, prev, next } = Astro.props;
+const { post, prev, next, series } = Astro.props;
 // Markdown render errors (e.g. an image without alt text) are only logged by the content loader.
 // Fail the build instead of publishing an empty post.
 if (post.filePath?.endsWith('.md') && !post.rendered) {
@@ -20,6 +27,6 @@ if (post.filePath?.endsWith('.md') && !post.rendered) {
 const { Content } = await render(post);
 ---
 
-<PostLayout post={post} prev={prev} next={next}>
+<PostLayout post={post} prev={prev} next={next} series={series}>
   <Content />
 </PostLayout>

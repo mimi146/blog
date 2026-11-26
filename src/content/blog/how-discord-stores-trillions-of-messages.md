@@ -4,6 +4,8 @@ description: 'How Discord moved chat history from MongoDB to Cassandra to Scylla
 pubDate: 2026-10-03
 tags: [distributed systems, databases, data modeling, systems at scale]
 draft: false
+series: system-design-deep-dives
+seriesPart: 1
 ---
 
 Discord decided early on to keep every chat message forever, so users can scroll back through their history on any device. That one product decision helped drive two database migrations. First, after hitting MongoDB's limits in late 2015, the messages moved from a single MongoDB replica set to Cassandra. By early 2022 Cassandra had grown to 177 nodes, and the messages moved again, this time to ScyllaDB, with a new Rust "data services" layer in front of it.

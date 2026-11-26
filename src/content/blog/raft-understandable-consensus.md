@@ -4,6 +4,8 @@ description: 'How Raft keeps a replicated log consistent: terms, randomized elec
 pubDate: 2026-11-01
 tags: [distributed systems, consensus, raft, consistency, papers]
 draft: false
+series: system-design-deep-dives
+seriesPart: 6
 ---
 
 Dynamo keeps accepting writes on both sides of a network partition and merges the results later. Raft makes the opposite choice: the minority side stops, and the majority side never diverges. In 2014, Diego Ongaro and John Ousterhout described it in [In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf). The conference version won Best Paper at [USENIX ATC ’14](https://www.usenix.org/conference/atc14/technical-sessions/presentation/ongaro). I’ll cite the extended version as **[Ongaro 2014]**, with section numbers. A few refinements come from Ongaro’s PhD thesis, [Consensus: Bridging Theory and Practice](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf) (Stanford, August 2014), cited as **[thesis]**. Paragraphs marked **My take** are my own analysis.

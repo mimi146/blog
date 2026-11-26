@@ -4,6 +4,8 @@ description: 'Slack put Kafka in front of Redis so enqueue stays up when workers
 pubDate: 2026-10-04
 tags: [distributed systems, messaging, kafka, redis, job queues]
 draft: false
+series: system-design-deep-dives
+seriesPart: 2
 ---
 
 Slack’s job queue runs work that is too slow for a web request: every message post, push notification, URL unfurl, calendar reminder, and billing calculation. On the busiest days it processed over **1.4 billion jobs**, peaking at **33,000 per second**, with job times from a few milliseconds to several minutes [[Slack 2017]](https://slack.engineering/scaling-slacks-job-queue/).
