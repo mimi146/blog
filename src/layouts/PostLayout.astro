@@ -2,6 +2,7 @@
 import { Image, getImage } from 'astro:assets';
 import BaseLayout from './BaseLayout.astro';
 import TagList from '../components/TagList.astro';
+import SeriesNav from '../components/SeriesNav.astro';
 import { SITE } from '../consts';
 import { absoluteUrl, formatDate, postPath, readingTime, withBase, type Post } from '../lib/utils';
 
@@ -9,8 +10,9 @@ interface Props {
   post: Post;
   prev?: Post;
   next?: Post;
+  series?: Post[]; // whole series in order, when the post belongs to one
 }
-const { post, prev, next } = Astro.props;
+const { post, prev, next, series = [] } = Astro.props;
 const { title, description, pubDate, updatedDate, tags, heroImage, heroAlt } = post.data;
 
 // Social image: the hero image (cropped to 1200x630 PNG) if present, otherwise the site default.
@@ -56,6 +58,7 @@ const article = {
 >
   <article data-pagefind-body>
     <header class="post-header">
+      {post.data.series && <SeriesNav seriesId={post.data.series} part={post.data.seriesPart ?? 1} posts={series} variant="top" />}
       <h1>{title}</h1>
       <p class="lede">{description}</p>
       <div class="meta">
@@ -91,8 +94,10 @@ const article = {
     <p>
       Thanks for reading. Follow along via <a href={withBase('/rss.xml')}>RSS</a> or browse <a href={withBase('/tags/')}>all tags</a>.
     </p>
+    {post.data.series && <SeriesNav seriesId={post.data.series} part={post.data.seriesPart ?? 1} posts={series} variant="bottom" />}
     {
-      (prev || next) && (
+      // Posts in a series use the series navigation above instead of date order.
+      !post.data.series && (prev || next) && (
         <nav class="post-nav" aria-label="More posts">
           {prev && (
             <a href={withBase(postPath(prev))} rel="prev">

@@ -4,6 +4,8 @@ description: 'How Google Spanner orders transactions worldwide: TrueTime interva
 pubDate: 2026-11-08
 tags: [distributed systems, databases, spanner, consistency, papers]
 draft: false
+series: system-design-deep-dives
+seriesPart: 7
 ---
 
 Raft and Paxos give you one ordered log per group of servers. A database that spans the planet needs thousands of those groups, and an order across all of them. Spanner, Google’s globally distributed database, gets that order from a clock. In 2012, James Corbett and 25 co-authors described it in [Spanner: Google’s Globally-Distributed Database](https://static.googleusercontent.com/media/research.google.com/en//archive/spanner-osdi2012.pdf), which won the Jay Lepreau Best Paper award at [OSDI ’12](https://www.usenix.org/conference/osdi12/technical-sessions/presentation/corbett). I’ll cite it as **[Corbett 2012]**, with section numbers. Two later sources show what changed: [Spanner: Becoming a SQL System](https://research.google/pubs/spanner-becoming-a-sql-system/) (SIGMOD ’17), cited as **[SQL ’17]**, and Eric Brewer’s [Spanner, TrueTime and the CAP Theorem](https://research.google/pubs/spanner-truetime-and-the-cap-theorem/) (2017), cited as **[Brewer]**. Paragraphs marked **My take** are my own analysis.

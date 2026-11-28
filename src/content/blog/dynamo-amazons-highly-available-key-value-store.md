@@ -4,6 +4,8 @@ description: 'How Amazon''s 2007 Dynamo kept carts writable: consistent hashing,
 pubDate: 2026-10-26
 tags: [distributed systems, amazon, key-value store, consistency, papers]
 draft: false
+series: system-design-deep-dives
+seriesPart: 5
 ---
 
 Amazon’s shopping cart had one hard rule: an “Add to Cart” operation “can never be forgotten or rejected.” In 2007, Giuseppe DeCandia and colleagues described the store built around that rule: [Dynamo: Amazon’s Highly Available Key-value Store](https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf), SOSP ’07. I’ll cite it as **[DeCandia 2007]**, with section numbers. Every Amazon-specific number and mechanism here comes from it and describes Amazon around 2006–2007. Paragraphs marked **My take** are my own analysis.

@@ -4,6 +4,8 @@ description: 'How Facebook scaled memcached to billions of requests per second: 
 pubDate: 2026-10-13
 tags: [distributed systems, caching, memcached, consistency, papers]
 draft: false
+series: system-design-deep-dives
+seriesPart: 3
 ---
 
 Memcached is just an in-memory hash table on one machine. In 2013, Facebook described how it turned that building block into a distributed cache that “handles billions of requests per second and holds trillions of items” for over a billion users. The paper is Rajesh Nishtala et al., [Scaling Memcache at Facebook](https://www.usenix.org/system/files/conference/nsdi13/nsdi13-final170_update.pdf), NSDI ’13. I’ll cite it as **[Nishtala 2013]**. Every Facebook-specific number and mechanism here comes from it and describes Facebook around 2013. Paragraphs marked **My take** are my own analysis.

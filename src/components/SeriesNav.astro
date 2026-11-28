@@ -1,0 +1,46 @@
+---
+import { getSeriesDef } from '../lib/series';
+import { postPath, withBase, type Post } from '../lib/utils';
+
+interface Props {
+  seriesId: string;
+  part: number;
+  posts: Post[]; // the whole series, in order
+  variant: 'top' | 'bottom';
+}
+const { seriesId, part, posts, variant } = Astro.props;
+const def = getSeriesDef(seriesId);
+const prev = posts[part - 2];
+const next = posts[part];
+---
+
+{
+  variant === 'top' && def && (
+    <p class="series-banner" data-pagefind-ignore>
+      <a href={withBase('/interview-prep/')}>Interview Prep</a> · {def.title} · <strong>Part {part} of {posts.length}</strong>
+    </p>
+  )
+}
+{
+  variant === 'bottom' && def && (
+    <nav class="series-nav" aria-label={`${def.title} series`}>
+      <p class="series-nav-title">
+        <a href={withBase('/interview-prep/')}>Interview Prep</a> · {def.title} · Part {part} of {posts.length}
+      </p>
+      <div class="post-nav">
+        {prev && (
+          <a href={withBase(postPath(prev))} rel="prev">
+            <small>Previous part</small>
+            Part {part - 1}: {prev.data.title}
+          </a>
+        )}
+        {next && (
+          <a class="next" href={withBase(postPath(next))} rel="next">
+            <small>Next part</small>
+            Part {part + 1}: {next.data.title}
+          </a>
+        )}
+      </div>
+    </nav>
+  )
+}

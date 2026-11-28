@@ -1,6 +1,7 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import { SERIES_IDS } from './lib/series';
 
 /**
  * Blog posts live in src/content/blog/. Either a single file (my-post.md / my-post.mdx)
@@ -19,12 +20,19 @@ const blog = defineCollection({
         updatedDate: z.coerce.date().optional(),
         tags: z.array(z.string().min(1)).default([]),
         draft: z.boolean().default(false),
+        // Optional series membership (see src/lib/series.ts): both fields together.
+        series: z.enum(SERIES_IDS).optional(),
+        seriesPart: z.number().int().positive().optional(),
         heroImage: image().optional(),
         heroAlt: z.string().optional(),
       })
       .refine((d) => !d.heroImage || (d.heroAlt && d.heroAlt.trim().length > 0), {
         message: 'heroAlt is required when heroImage is set (describe the image for screen readers and SEO).',
         path: ['heroAlt'],
+      })
+      .refine((d) => !d.series === !d.seriesPart, {
+        message: 'series and seriesPart must be set together.',
+        path: ['seriesPart'],
       })
       .refine((d) => !d.updatedDate || d.updatedDate >= d.pubDate, {
         message: 'updatedDate must be on or after pubDate.',

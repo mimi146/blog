@@ -4,6 +4,8 @@ description: 'How Amazon Aurora ships only redo log records to six-way storage a
 pubDate: 2026-11-15
 tags: [distributed systems, databases, aurora, storage, papers]
 draft: false
+series: system-design-deep-dives
+seriesPart: 8
 ---
 
 Raft commits each log entry once a majority of replicas has stored it, and Spanner runs a Paxos group per tablet, adding two-phase commit when a transaction spans groups. Amazon Aurora, the relational database AWS launched in 2015, takes a different route. It keeps one writer, moves the bottom of the storage engine onto a fleet of storage nodes, and avoids consensus on the hot path almost entirely. The design is described in two papers by Alexandre Verbitski and colleagues at AWS: [Amazon Aurora: Design Considerations for High Throughput Cloud-Native Relational Databases](https://www.amazon.science/publications/amazon-aurora-design-considerations-for-high-throughput-cloud-native-relational-databases) (SIGMOD ’17, [PDF](https://web.stanford.edu/class/cs245/readings/aurora.pdf)), cited as **[A17]**, and [Amazon Aurora: On Avoiding Distributed Consensus for I/Os, Commits, and Membership Changes](https://www.amazon.science/publications/amazon-aurora-on-avoiding-distributed-consensus-for-i-os-commits-and-membership-changes) (SIGMOD ’18, [PDF](https://pages.cs.wisc.edu/~yxy/cs764-f20/papers/aurora-sigmod-18.pdf)), cited as **[A18]**. Section numbers refer to those papers. They describe Aurora as it was in 2016–2018, so treat this as a design study, not a product manual. Paragraphs marked **My take** are my own analysis.
